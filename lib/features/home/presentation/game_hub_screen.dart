@@ -3,6 +3,7 @@ import 'package:turbo_track_racing/features/fire_game/presentation/screens/fire_
 
 import '../../racing/presentation/racing_screen.dart';
 import '../../endless_runner/presentation/screens/endless_runner_screen.dart';
+import '../../angry_bird/presentation/angry_bird_screen.dart';
 
 class GameHubScreen extends StatelessWidget {
   const GameHubScreen({super.key});
@@ -49,7 +50,7 @@ class GameHubScreen extends StatelessWidget {
 
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final vertical = constraints.maxWidth < 600;
+                      final crossAxisCount = constraints.maxWidth < 600 ? 1 : 2;
 
                       final cards = [
                         _GameCard(
@@ -94,39 +95,33 @@ class GameHubScreen extends StatelessWidget {
                             );
                           },
                         ),
+
+                        _GameCard(
+                          icon: Icons.adjust_rounded,
+                          title: 'PHYSICS SMASH',
+                          description:
+                          'Sling birds, topple structures and smash every pig.',
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const AngryBirdScreen(),
+                              ),
+                            );
+                          },
+                        ),
                       ];
 
-                      if (vertical) {
-                        return Column(
-                          children: [
-                            cards[0],
-                            const SizedBox(height: 16),
-                            cards[1],
-                            const SizedBox(height: 16),
-                            cards[2],
-                          ],
-                        );
-                      }
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              children: [
-                                cards[0],
-                                const SizedBox(height: 16),
-                                cards[2],
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(width: 16),
-
-                          Expanded(
-                            child: cards[1],
-                          ),
-                        ],
+                      // A grid keeps the hub scalable: dropping a new
+                      // _GameCard into this list is all that's needed to
+                      // add another game, no manual row/column bookkeeping.
+                      return GridView.count(
+                        crossAxisCount: crossAxisCount,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: crossAxisCount == 1 ? 1.9 : 0.95,
+                        children: cards,
                       );
                     },
                   ),
