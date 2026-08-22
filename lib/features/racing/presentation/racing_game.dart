@@ -376,6 +376,7 @@ class RacingGame extends FlameGame {
 
   @override
   void render(Canvas canvas) {
+    super.render(canvas);
     final w = size.x;
     final h = size.y;
     if (w <= 0 || h <= 0) return;

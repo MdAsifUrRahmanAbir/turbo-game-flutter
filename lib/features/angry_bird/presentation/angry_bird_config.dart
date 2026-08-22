@@ -54,6 +54,9 @@ abstract final class AngryBirdConfig {
   static const double pigRadius = 14;
 
   static const double maxDragRadius = 95;
+  // Hit-test radius for picking up the bird — kept noticeably larger than
+  // maxDragRadius so grabbing feels forgiving on touch screens.
+  static const double grabRadius = 140;
   static const double launchPower = 5.6;
   static const double yellowBoostMultiplier = 1.8;
 
@@ -63,4 +66,12 @@ abstract final class AngryBirdConfig {
   static const double blockHealthStone = 90;
 
   static const double restSpeedThreshold = 6;
+
+  static const List<Color> confetti = [
+    Color(0xFFFF6B4A),
+    Color(0xFFFFC94A),
+    Color(0xFF0EC9B0),
+    Color(0xFF4D7CFF),
+    Color(0xFFFF5C93),
+  ];
 }

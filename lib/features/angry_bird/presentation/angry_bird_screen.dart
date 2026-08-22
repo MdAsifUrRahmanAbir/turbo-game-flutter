@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flame/game.dart';
@@ -330,6 +331,7 @@ class _PlayView extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onPanStart: (d) => game.onDragStart(d.localPosition),
             onPanUpdate: (d) => game.onDragUpdate(d.localPosition),
             onPanEnd: (_) => game.onDragEnd(),
@@ -337,7 +339,7 @@ class _PlayView extends StatelessWidget {
           ),
           ValueListenableBuilder<int>(
             valueListenable: game.hudTick,
-            builder: (_, __, ___) {
+            builder: (_, _, _) {
               if (!game.isPausedByUser) return const SizedBox.shrink();
               return _PausedOverlay(onResume: game.togglePause, onMenu: onMenu);
             },
@@ -348,7 +350,7 @@ class _PlayView extends StatelessWidget {
             right: 14,
             child: ValueListenableBuilder<int>(
               valueListenable: game.hudTick,
-              builder: (_, __, ___) => Row(
+              builder: (_, _, _) => Row(
                 children: [
                   Expanded(
                     child: _GlassPanel(
@@ -375,7 +377,7 @@ class _PlayView extends StatelessWidget {
             bottom: 24,
             child: ValueListenableBuilder<int>(
               valueListenable: game.hudTick,
-              builder: (_, __, ___) {
+              builder: (_, _, _) {
                 if (!game.isBoostReady) return const SizedBox.shrink();
                 return GestureDetector(
                   onTap: game.activateBoost,
@@ -416,8 +418,12 @@ class _HudMini extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 5),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.18)),
+          child: Icon(icon, size: 14, color: color),
+        ),
+        const SizedBox(width: 6),
         Text(text, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white)),
       ],
     );
@@ -488,50 +494,131 @@ class _LevelCompleteView extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLast = state.currentLevel >= angryBirdLevels.length - 1;
     return _SkyBackground(
-      child: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: _GlassPanel(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(colors: [AngryBirdConfig.gold, AngryBirdConfig.coral]),
-                      ),
-                      child: const Icon(Icons.emoji_events_rounded, size: 46, color: Colors.white),
+      child: Stack(
+        children: [
+          const Positioned.fill(child: _ConfettiOverlay()),
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: _GlassPanel(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(colors: [AngryBirdConfig.gold, AngryBirdConfig.coral]),
+                          ),
+                          child: const Icon(Icons.emoji_events_rounded, size: 46, color: Colors.white),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('LEVEL CLEAR!', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
+                        const SizedBox(height: 12),
+                        _StarRow(stars: state.lastStars, size: 34),
+                        const SizedBox(height: 18),
+                        Text('SCORE  ${state.lastScore}', style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w800, fontSize: 15)),
+                        const SizedBox(height: 26),
+                        _GradientButton(
+                          label: isLast ? 'BACK TO MENU' : 'NEXT LEVEL',
+                          icon: isLast ? Icons.home_rounded : Icons.arrow_forward_rounded,
+                          onPressed: onNext,
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: onMenu,
+                          child: const Text('LEVEL SELECT', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    const Text('LEVEL CLEAR!', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
-                    const SizedBox(height: 12),
-                    _StarRow(stars: state.lastStars, size: 34),
-                    const SizedBox(height: 18),
-                    Text('SCORE  ${state.lastScore}', style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w800, fontSize: 15)),
-                    const SizedBox(height: 26),
-                    _GradientButton(
-                      label: isLast ? 'BACK TO MENU' : 'NEXT LEVEL',
-                      icon: isLast ? Icons.home_rounded : Icons.arrow_forward_rounded,
-                      onPressed: onNext,
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: onMenu,
-                      child: const Text('LEVEL SELECT', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.w700, letterSpacing: 1)),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ===========================================================================
+// Confetti (level-complete celebration)
+// ===========================================================================
+
+class _ConfettiOverlay extends StatefulWidget {
+  const _ConfettiOverlay();
+
+  @override
+  State<_ConfettiOverlay> createState() => _ConfettiOverlayState();
+}
+
+class _ConfettiOverlayState extends State<_ConfettiOverlay> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+  final List<_ConfettiPiece> _pieces = List.generate(26, _ConfettiPiece.new);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) => CustomPaint(
+          painter: _ConfettiPainter(_pieces, _controller.value),
+          size: Size.infinite,
         ),
       ),
     );
   }
+}
+
+class _ConfettiPiece {
+  _ConfettiPiece(int seed)
+      : x = math.Random(seed * 17 + 1).nextDouble(),
+        delay = math.Random(seed * 31 + 2).nextDouble(),
+        speed = 0.6 + math.Random(seed * 53 + 3).nextDouble() * 0.6,
+        drift = (math.Random(seed * 71 + 4).nextDouble() - 0.5) * 40,
+        colorIndex = seed % AngryBirdConfig.confetti.length,
+        spin = math.Random(seed * 97 + 5).nextDouble() * math.pi * 2;
+
+  final double x;
+  final double delay;
+  final double speed;
+  final double drift;
+  final int colorIndex;
+  final double spin;
+}
+
+class _ConfettiPainter extends CustomPainter {
+  _ConfettiPainter(this.pieces, this.t);
+  final List<_ConfettiPiece> pieces;
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final p in pieces) {
+      final local = ((t + p.delay) * p.speed) % 1.0;
+      final dy = local * (size.height + 40) - 20;
+      final dx = p.x * size.width + math.sin(local * math.pi * 4) * p.drift;
+      final paint = Paint()..color = AngryBirdConfig.confetti[p.colorIndex].withValues(alpha: 0.85);
+      canvas.save();
+      canvas.translate(dx, dy);
+      canvas.rotate(p.spin + local * math.pi * 6);
+      canvas.drawRect(const Rect.fromLTWH(-3, -5, 6, 10), paint);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfettiPainter oldDelegate) => true;
 }
 
 class _GameOverView extends StatelessWidget {

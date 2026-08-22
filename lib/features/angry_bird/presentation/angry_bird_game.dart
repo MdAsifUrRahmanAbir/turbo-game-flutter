@@ -2,7 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flame/game.dart';
-import 'package:flutter/material.dart' show Colors, ValueNotifier, LinearGradient, Alignment;
+import 'package:flutter/material.dart'
+    show Colors, ValueNotifier, TextPainter, TextSpan, TextStyle, FontWeight, LinearGradient, Alignment, RadialGradient;
 
 import 'angry_bird_config.dart';
 import 'angry_bird_levels.dart';
@@ -39,6 +40,7 @@ class AngryBirdGame extends FlameGame {
 
   double _shakeTime = 0;
   static const double _shakeDuration = 0.25;
+  double _time = 0;
 
   double _renderScale = 1;
   double _renderOffsetX = 0;
@@ -88,7 +90,12 @@ class AngryBirdGame extends FlameGame {
   void _spawnNextBird() {
     final kind = level.birds[_birdIndex];
     _current = _Bird(kind: kind, x: slingAnchor.dx, y: slingAnchor.dy);
-    hudTick.value++;
+    // NOTE: don't bump hudTick here. This is also called from onLoad(),
+    // and onLoad's future can resolve synchronously mid-build (inside the
+    // GameWidget's own LayoutBuilder), which crashes any
+    // ValueListenableBuilder listening to hudTick with "setState() called
+    // during build". update() already bumps hudTick every frame, so the
+    // HUD picks this up on the very next tick regardless.
   }
 
   void togglePause() {
@@ -111,7 +118,7 @@ class AngryBirdGame extends FlameGame {
     final world = screenToWorld(screenPos);
     final dx = world.dx - slingAnchor.dx;
     final dy = world.dy - slingAnchor.dy;
-    if (dx * dx + dy * dy < AngryBirdConfig.maxDragRadius * AngryBirdConfig.maxDragRadius * 3) {
+    if (dx * dx + dy * dy < AngryBirdConfig.grabRadius * AngryBirdConfig.grabRadius) {
       _dragging = true;
     }
   }
@@ -188,6 +195,11 @@ class AngryBirdGame extends FlameGame {
     if (_paused || _levelEnded) {
       hudTick.value++;
       return;
+    }
+
+    _time += dt;
+    if (_current != null && !_current!.launched && !_dragging) {
+      _current!.idleT += dt;
     }
 
     _updatePhysics(dt.clamp(0.0, 0.032));
@@ -517,6 +529,7 @@ class AngryBirdGame extends FlameGame {
 
   @override
   void render(Canvas canvas) {
+    super.render(canvas);
     final w = size.x;
     final h = size.y;
     if (w <= 0 || h <= 0) return;
@@ -550,10 +563,16 @@ class AngryBirdGame extends FlameGame {
     for (final pig in _pigs) {
       if (pig.alive) _renderPig(canvas, pig);
     }
-    if (isAiming && _dragging) _renderTrajectory(canvas);
+    if (isAiming && _dragging) {
+      _renderTrajectory(canvas);
+      _renderPowerMeter(canvas);
+    }
+    _renderPouch(canvas);
     _renderSlingFront(canvas);
+    _renderGrabHint(canvas);
     if (_current != null) _renderBird(canvas, _current!);
     _renderParticles(canvas);
+    _renderVignette(canvas);
 
     canvas.restore();
   }
@@ -567,6 +586,24 @@ class AngryBirdGame extends FlameGame {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [AngryBirdConfig.skyTop, AngryBirdConfig.skyBottom],
+        ).createShader(rect),
+    );
+
+    const sunCenter = Offset(660, 66);
+    canvas.drawCircle(sunCenter, 70, Paint()..color = Colors.white.withValues(alpha: 0.16));
+    canvas.drawCircle(sunCenter, 42, Paint()..color = Colors.white.withValues(alpha: 0.5));
+    canvas.drawCircle(sunCenter, 24, Paint()..color = Colors.white.withValues(alpha: 0.92));
+  }
+
+  void _renderVignette(Canvas canvas) {
+    final rect = Rect.fromLTWH(0, 0, AngryBirdConfig.refWidth, AngryBirdConfig.refHeight);
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.16)],
+          stops: const [0.6, 1],
+          radius: 0.9,
         ).createShader(rect),
     );
   }
@@ -609,37 +646,136 @@ class AngryBirdGame extends FlameGame {
     );
   }
 
+  /// True only while there's a bird actually resting in the pouch, i.e.
+  /// before it's been launched. The band should only ever stretch toward
+  /// the bird during this window — once [_Bird.launched] is true the band
+  /// must NOT keep tracking it, or the elastic visually "sticks" to the
+  /// bird as it flies away.
+  bool get _bandShouldFollowBird => _current != null && !_current!.launched;
+
   void _renderSlingBack(Canvas canvas) {
     final base = slingAnchor;
-    final woodPaint = Paint()
-      ..color = AngryBirdConfig.slingWood
-      ..strokeWidth = 8
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(base.dx - 14, AngryBirdConfig.groundY), Offset(base.dx - 14, base.dy - 8), woodPaint);
+    final postTop = Offset(base.dx - 14, base.dy - 8);
+    final postBottom = Offset(base.dx - 14, AngryBirdConfig.groundY);
+    canvas.drawLine(
+      postBottom,
+      postTop,
+      Paint()
+        ..color = AngryBirdConfig.slingWood
+        ..strokeWidth = 8
+        ..strokeCap = StrokeCap.round,
+    );
+    _drawWoodGrain(canvas, postTop, postBottom);
 
-    final bandFrom = Offset(base.dx - 14, base.dy - 8);
-    final tip = _current != null ? Offset(_current!.x, _current!.y) : base;
-    canvas.drawLine(bandFrom, tip, Paint()..color = AngryBirdConfig.band..strokeWidth = 3);
+    final tip = _bandShouldFollowBird ? Offset(_current!.x, _current!.y) : Offset(base.dx, base.dy - 8);
+    final stretch = (tip - postTop).distance;
+    canvas.drawLine(
+      postTop,
+      tip,
+      Paint()
+        ..color = AngryBirdConfig.band
+        ..strokeWidth = (2.4 + stretch * 0.012).clamp(2.4, 6.0)
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   void _renderSlingFront(Canvas canvas) {
     final base = slingAnchor;
-    final woodPaint = Paint()
-      ..color = AngryBirdConfig.slingWood
-      ..strokeWidth = 8
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(base.dx + 14, AngryBirdConfig.groundY), Offset(base.dx + 14, base.dy - 8), woodPaint);
+    final postTop = Offset(base.dx + 14, base.dy - 8);
+    final postBottom = Offset(base.dx + 14, AngryBirdConfig.groundY);
     canvas.drawLine(
-      Offset(base.dx + 14, AngryBirdConfig.groundY),
-      Offset(base.dx + 14, base.dy - 8),
+      postBottom,
+      postTop,
       Paint()
-        ..color = AngryBirdConfig.slingWoodDark
+        ..color = AngryBirdConfig.slingWood
+        ..strokeWidth = 8
+        ..strokeCap = StrokeCap.round,
+    );
+    _drawWoodGrain(canvas, postTop, postBottom);
+
+    final tip = _bandShouldFollowBird ? Offset(_current!.x, _current!.y) : Offset(base.dx, base.dy - 8);
+    final stretch = (tip - postTop).distance;
+    canvas.drawLine(
+      postTop,
+      tip,
+      Paint()
+        ..color = AngryBirdConfig.band
+        ..strokeWidth = (2.4 + stretch * 0.012).clamp(2.4, 6.0)
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  void _drawWoodGrain(Canvas canvas, Offset top, Offset bottom) {
+    final paint = Paint()
+      ..color = AngryBirdConfig.slingWoodDark.withValues(alpha: 0.55)
+      ..strokeWidth = 1.4;
+    for (var i = 1; i <= 3; i++) {
+      final t = i / 4;
+      final y = top.dy + (bottom.dy - top.dy) * t;
+      canvas.drawLine(Offset(top.dx - 3, y), Offset(top.dx + 3, y), paint);
+    }
+  }
+
+  /// The small leather pouch cradling the bird — only drawn while a bird
+  /// is actually loaded and unlaunched, so it disappears the instant the
+  /// bird leaves the sling.
+  void _renderPouch(Canvas canvas) {
+    if (!_bandShouldFollowBird) return;
+    final p = Offset(_current!.x, _current!.y);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromCenter(center: p, width: 22, height: 14), const Radius.circular(4)),
+      Paint()..color = AngryBirdConfig.band.withValues(alpha: 0.9),
+    );
+  }
+
+  /// A soft pulsing ring hinting that the bird can be grabbed, visible
+  /// only while it's sitting idle on the sling.
+  void _renderGrabHint(Canvas canvas) {
+    if (!isAiming || _dragging) return;
+    final pulse = (math.sin(_time * 3) + 1) / 2;
+    final r = _current!.radius + 6 + pulse * 5;
+    canvas.drawCircle(
+      Offset(_current!.x, _current!.y),
+      r,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.32 - pulse * 0.14)
+        ..style = PaintingStyle.stroke
         ..strokeWidth = 2,
     );
+  }
 
-    final bandFrom = Offset(base.dx + 14, base.dy - 8);
-    final tip = _current != null ? Offset(_current!.x, _current!.y) : base;
-    canvas.drawLine(bandFrom, tip, Paint()..color = AngryBirdConfig.band..strokeWidth = 3);
+  /// A small radial gauge showing how much of the max pull is being used,
+  /// drawn above the sling while actively dragging.
+  void _renderPowerMeter(Canvas canvas) {
+    final bird = _current;
+    if (bird == null) return;
+    final dx = slingAnchor.dx - bird.x;
+    final dy = slingAnchor.dy - bird.y;
+    final pull = math.sqrt(dx * dx + dy * dy);
+    final pct = (pull / AngryBirdConfig.maxDragRadius).clamp(0.0, 1.0);
+
+    final center = Offset(slingAnchor.dx, slingAnchor.dy - 58);
+    const radius = 22.0;
+    canvas.drawCircle(center, radius, Paint()..color = Colors.black.withValues(alpha: 0.28));
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius - 3),
+      -math.pi / 2,
+      2 * math.pi * pct,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round
+        ..color = Color.lerp(AngryBirdConfig.teal, AngryBirdConfig.coral, pct)!,
+    );
+    final tp = TextPainter(
+      text: TextSpan(
+        text: '${(pct * 100).round()}%',
+        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
   }
 
   void _renderTrajectory(Canvas canvas) {
@@ -649,16 +785,18 @@ class AngryBirdGame extends FlameGame {
     final vy = (slingAnchor.dy - b.y) * AngryBirdConfig.launchPower;
     var x = b.x;
     var y = b.y;
-    var dvx = vx;
+    final dvx = vx;
     var dvy = vy;
-    final paint = Paint()..color = AngryBirdConfig.trajectoryDot;
+    final core = b.kind == BirdKind.yellow ? AngryBirdConfig.birdYellow : AngryBirdConfig.birdRed;
     for (var i = 0; i < 30; i++) {
       dvy += AngryBirdConfig.gravity * 0.045;
       x += dvx * 0.045;
       y += dvy * 0.045;
       if (y > AngryBirdConfig.groundY) break;
       if (i % 2 == 0) {
-        canvas.drawCircle(Offset(x, y), 2.6, paint);
+        final fade = 1 - i / 30;
+        canvas.drawCircle(Offset(x, y), 4.2, Paint()..color = core.withValues(alpha: 0.18 * fade));
+        canvas.drawCircle(Offset(x, y), 2.1, Paint()..color = Colors.white.withValues(alpha: 0.85 * fade));
       }
     }
   }
@@ -681,6 +819,27 @@ class AngryBirdGame extends FlameGame {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6,
     );
+    canvas.drawRect(
+      Rect.fromLTWH(block.x - block.w / 2 + 2, block.y - block.h / 2 + 1.5, block.w - 4, 2.4),
+      Paint()..color = Colors.white.withValues(alpha: 0.22),
+    );
+    if (isWood) {
+      final grain = Paint()
+        ..color = dark.withValues(alpha: 0.35)
+        ..strokeWidth = 1;
+      for (var i = 1; i <= 2; i++) {
+        final gy = block.y - block.h / 2 + block.h * i / 3;
+        canvas.drawLine(Offset(block.x - block.w / 2 + 3, gy), Offset(block.x + block.w / 2 - 3, gy), grain);
+      }
+    } else {
+      final speck = Paint()..color = dark.withValues(alpha: 0.3);
+      final seeded = math.Random(block.x.toInt() * 31 + block.y.toInt());
+      for (var i = 0; i < 4; i++) {
+        final px = block.x - block.w / 2 + seeded.nextDouble() * block.w;
+        final py = block.y - block.h / 2 + seeded.nextDouble() * block.h;
+        canvas.drawCircle(Offset(px, py), 1.4, speck);
+      }
+    }
     if (block.flash > 0) {
       canvas.drawRRect(rect, Paint()..color = Colors.white.withValues(alpha: block.flash * 2.2));
     }
@@ -718,6 +877,10 @@ class AngryBirdGame extends FlameGame {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6,
     );
+    final earPaint = Paint()..color = AngryBirdConfig.pigGreenDark;
+    canvas.drawCircle(Offset(-pig.radius * 0.55, -pig.radius * 0.65), pig.radius * 0.22, earPaint);
+    canvas.drawCircle(Offset(pig.radius * 0.55, -pig.radius * 0.65), pig.radius * 0.22, earPaint);
+
     canvas.drawOval(
       Rect.fromCenter(center: Offset(0, pig.radius * 0.25), width: pig.radius * 0.8, height: pig.radius * 0.55),
       Paint()..color = AngryBirdConfig.pigGreenDark.withValues(alpha: 0.7),
@@ -726,6 +889,9 @@ class AngryBirdGame extends FlameGame {
       canvas.drawCircle(Offset(side * pig.radius * 0.35, -pig.radius * 0.15), pig.radius * 0.24, Paint()..color = Colors.white);
       canvas.drawCircle(Offset(side * pig.radius * 0.35, -pig.radius * 0.15), pig.radius * 0.1, Paint()..color = Colors.black);
     }
+    final blush = Paint()..color = const Color(0xFFFF9E9E).withValues(alpha: 0.55);
+    canvas.drawCircle(Offset(-pig.radius * 0.6, pig.radius * 0.15), pig.radius * 0.16, blush);
+    canvas.drawCircle(Offset(pig.radius * 0.6, pig.radius * 0.15), pig.radius * 0.16, blush);
     canvas.restore();
     if (pig.hitFlash > 0) pig.hitFlash = math.max(0, pig.hitFlash - 0.02);
   }
@@ -740,9 +906,23 @@ class AngryBirdGame extends FlameGame {
     final body = isYellow ? AngryBirdConfig.birdYellow : AngryBirdConfig.birdRed;
     final dark = isYellow ? AngryBirdConfig.birdYellowDark : AngryBirdConfig.birdRedDark;
 
+    final bobOffset = (!bird.launched && !_dragging) ? math.sin(bird.idleT * 3) * 2 : 0.0;
+    final speed = math.sqrt(bird.vx * bird.vx + bird.vy * bird.vy);
+    final stretch = bird.launched ? 1 + (speed / 900).clamp(0.0, 0.35) : 1.0;
+    final squash = bird.launched ? 1 - (speed / 900).clamp(0.0, 0.22) : 1.0;
+    final travelAngle = bird.launched ? math.atan2(bird.vy, bird.vx) : 0.0;
+
     canvas.save();
-    canvas.translate(bird.x, bird.y);
-    canvas.rotate(bird.rotation);
+    canvas.translate(bird.x, bird.y + bobOffset);
+    canvas.rotate(bird.launched ? travelAngle * 0.3 : bird.rotation);
+    canvas.scale(stretch, squash);
+
+    final tail = Path()
+      ..moveTo(-bird.radius * 0.85, -2)
+      ..lineTo(-bird.radius * 1.5, -bird.radius * 0.55)
+      ..lineTo(-bird.radius * 1.1, 3)
+      ..close();
+    canvas.drawPath(tail, Paint()..color = dark);
 
     canvas.drawCircle(Offset.zero, bird.radius, Paint()..color = body);
     canvas.drawCircle(
@@ -800,6 +980,7 @@ class _Bird {
   bool boosted = false;
   int bounces = 0;
   double restTimer = 0;
+  double idleT = 0;
   final double radius = AngryBirdConfig.birdRadius;
   final List<Offset> trail = [];
 }

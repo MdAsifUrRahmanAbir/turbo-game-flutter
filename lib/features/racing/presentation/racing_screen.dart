@@ -165,8 +165,7 @@ class _GradientButton extends StatefulWidget {
     required this.icon,
     required this.onPressed,
     this.colors = const [RacingConfig.coral, Color(0xFFFF8A5C)],
-    this.textColor = Colors.white,
-  });
+  }) : textColor = Colors.white;
 
   final String label;
   final IconData icon;
@@ -406,7 +405,7 @@ class _RaceView extends StatelessWidget {
           GameWidget(game: game),
           ValueListenableBuilder<int>(
             valueListenable: game.hudTick,
-            builder: (_, __, ___) {
+            builder: (_, _, _) {
               if (!game.isPausedByUser) return const SizedBox.shrink();
               return _PausedOverlay(
                 onResume: game.togglePause,
@@ -420,7 +419,7 @@ class _RaceView extends StatelessWidget {
             right: 14,
             child: ValueListenableBuilder<int>(
               valueListenable: game.hudTick,
-              builder: (_, __, ___) => Row(
+              builder: (_, _, _) => Row(
                 children: [
                   Expanded(
                     child: _GlassPanel(
@@ -449,7 +448,7 @@ class _RaceView extends StatelessWidget {
             bottom: 22,
             child: ValueListenableBuilder<int>(
               valueListenable: game.hudTick,
-              builder: (_, __, ___) => Column(
+              builder: (_, _, _) => Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _NitroGauge(game: game),
