@@ -1,14 +1,19 @@
 import 'dart:math' as math;
 
+import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'racing_config.dart';
 
 /// A hand-painted, cartoon-styled endless racer. Everything is drawn with
 /// [Canvas] primitives (no image assets required) so the whole look can be
 /// re-themed from [RacingConfig].
-class RacingGame extends FlameGame {
+///
+/// Supports both on-screen touch controls and a physical keyboard (for web):
+/// A/D to steer, S to brake, and Enter or Space to trigger nitro.
+class RacingGame extends FlameGame with KeyboardEvents {
   RacingGame({required this.onGameOver});
 
   /// Fired once, with the final score and coins collected, when a run ends.
@@ -115,6 +120,25 @@ class RacingGame extends FlameGame {
     _nitroTimeLeft = RacingConfig.nitroDuration;
     _nitroCooldown = RacingConfig.nitroCooldown;
     _shakeTime = math.max(_shakeTime, 0.18);
+  }
+
+  // ---------------------------------------------------------------------
+  // Keyboard (web/desktop)
+  // ---------------------------------------------------------------------
+
+  @override
+  KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    steerLeft(keysPressed.contains(LogicalKeyboardKey.keyA));
+    steerRight(keysPressed.contains(LogicalKeyboardKey.keyD));
+    brake(keysPressed.contains(LogicalKeyboardKey.keyS));
+
+    if (event is KeyDownEvent &&
+        (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.space)) {
+      activateNitro();
+    }
+
+    return KeyEventResult.handled;
   }
 
   // ---------------------------------------------------------------------

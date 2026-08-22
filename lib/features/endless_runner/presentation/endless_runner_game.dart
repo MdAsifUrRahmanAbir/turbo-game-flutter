@@ -1,17 +1,21 @@
 import 'dart:math' as math;
 
+import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'endless_runner_config.dart';
-
 
 enum _ObstacleKind { wall, low, high }
 
 /// A hand-painted, cartoon-styled 3-lane endless runner. Everything is
 /// drawn with [Canvas] primitives (no image assets required) so the whole
 /// look can be re-themed from [EndlessRunnerConfig].
-class EndlessRunnerGame extends FlameGame {
+///
+/// Supports both on-screen touch controls and a physical keyboard (for web):
+/// A/D to switch lanes, W or Enter or Space to jump, and S to duck.
+class EndlessRunnerGame extends FlameGame with KeyboardEvents {
   EndlessRunnerGame({required this.onHudChanged, required this.onGameOver});
 
   /// Fired several times a second while playing so the HUD can stay in
@@ -111,6 +115,37 @@ class EndlessRunnerGame extends FlameGame {
     if (!isRunning) return;
     if (_jumpTimer > 0) return;
     _duckTimer = EndlessRunnerConfig.duckDuration;
+  }
+
+  // ---------------------------------------------------------------------
+  // Keyboard (web/desktop)
+  // ---------------------------------------------------------------------
+
+  @override
+  KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    // Lane switches, jumps and ducks are one-shot actions, so they only
+    // fire on the initial key-down — not on the auto-repeat events sent
+    // while a key is held.
+    if (event is KeyDownEvent) {
+      switch (event.logicalKey) {
+        case LogicalKeyboardKey.keyA:
+          moveLeft();
+          break;
+        case LogicalKeyboardKey.keyD:
+          moveRight();
+          break;
+        case LogicalKeyboardKey.keyW:
+        case LogicalKeyboardKey.enter:
+        case LogicalKeyboardKey.space:
+          jump();
+          break;
+        case LogicalKeyboardKey.keyS:
+          duck();
+          break;
+      }
+    }
+
+    return KeyEventResult.handled;
   }
 
   void togglePause() {

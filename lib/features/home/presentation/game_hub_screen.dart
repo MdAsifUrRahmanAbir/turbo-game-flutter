@@ -1,11 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:turbo_track_racing/features/fire_game/presentation/screens/fire_game_screen.dart';
 
 import '../../endless_runner/presentation/endless_runner_screen.dart';
+import '../../fire_game/presentation/fire_game_screen.dart';
 import '../../racing/presentation/racing_screen.dart';
 import '../../angry_bird/presentation/angry_bird_screen.dart';
+import '../../football_penalty/football_penalty_screen.dart';
 
 /// The arcade "front door" — a cartoon, glowing dashboard that lists every
 /// mini-game as its own themed cabinet card. Adding a new game only means
@@ -33,6 +34,17 @@ class _GameHubScreenState extends State<GameHubScreen>
 
   List<_GameEntry> _buildGameEntries(BuildContext context) {
     return [
+      _GameEntry(
+        icon: Icons.sports_soccer_rounded,
+        title: 'PENALTY KINGS',
+        tag: 'KICK',
+        description: 'Pick your corner, beat the keeper and build a scoring streak.',
+        colors: const [Color(0xFF159447), Color(0xFF63D9FF)],
+        glow: const Color(0xFF63D9FF),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const FootballPenaltyScreen()),
+        ),
+      ),
       _GameEntry(
         icon: Icons.directions_car_filled_rounded,
         title: '2D RACING',

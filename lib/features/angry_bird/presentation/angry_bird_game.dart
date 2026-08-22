@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart'
-    show Colors, ValueNotifier, TextPainter, TextSpan, TextStyle, FontWeight, LinearGradient, Alignment, RadialGradient;
+    show Colors, ValueNotifier, TextPainter, TextSpan, TextStyle, FontWeight, RadialGradient, LinearGradient, Alignment;
 
 import 'angry_bird_config.dart';
 import 'angry_bird_levels.dart';
@@ -61,7 +61,7 @@ class AngryBirdGame extends FlameGame {
       _current!.kind == BirdKind.yellow &&
       !_current!.boosted;
 
-  Offset get slingAnchor => Offset(120, AngryBirdConfig.groundY - 60);
+  Offset get slingAnchor => Offset(120, AngryBirdConfig.groundY - AngryBirdConfig.slingLift);
 
   @override
   Color backgroundColor() => AngryBirdConfig.skyTop;
@@ -134,8 +134,15 @@ class AngryBirdGame extends FlameGame {
       dx *= s;
       dy *= s;
     }
-    _current!.x = slingAnchor.dx + dx;
-    _current!.y = slingAnchor.dy + dy;
+    final newX = slingAnchor.dx + dx;
+    var newY = slingAnchor.dy + dy;
+    // Never let the pull drag the bird's center below the ground surface —
+    // without this, pulling straight down visually sank the bird into the
+    // floor instead of stopping at it.
+    final maxY = AngryBirdConfig.groundY - _current!.radius - 4;
+    if (newY > maxY) newY = maxY;
+    _current!.x = newX;
+    _current!.y = newY;
     hudTick.value++;
   }
 
@@ -564,6 +571,7 @@ class AngryBirdGame extends FlameGame {
       if (pig.alive) _renderPig(canvas, pig);
     }
     if (isAiming && _dragging) {
+      _renderPullBoundary(canvas);
       _renderTrajectory(canvas);
       _renderPowerMeter(canvas);
     }
@@ -644,6 +652,16 @@ class AngryBirdGame extends FlameGame {
       Rect.fromLTWH(0, AngryBirdConfig.groundY, AngryBirdConfig.refWidth, 8),
       Paint()..color = AngryBirdConfig.groundTop,
     );
+
+    final blade = Paint()
+      ..color = AngryBirdConfig.hillNear
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    for (double x = 4; x < AngryBirdConfig.refWidth; x += 14) {
+      final h = 4.0 + (x.toInt() % 5);
+      canvas.drawLine(Offset(x, AngryBirdConfig.groundY), Offset(x - 2.5, AngryBirdConfig.groundY - h), blade);
+      canvas.drawLine(Offset(x, AngryBirdConfig.groundY), Offset(x + 2.5, AngryBirdConfig.groundY - h * 0.8), blade);
+    }
   }
 
   /// True only while there's a bird actually resting in the pouch, i.e.
@@ -744,8 +762,27 @@ class AngryBirdGame extends FlameGame {
     );
   }
 
+  /// A dashed ring at the max pull distance from the sling's pouch anchor,
+  /// so it's visually obvious how much further the bird can still be
+  /// pulled back — directly answering "how far can I drag this?".
+  void _renderPullBoundary(Canvas canvas) {
+    final center = Offset(slingAnchor.dx, slingAnchor.dy - 8);
+    const radius = AngryBirdConfig.maxDragRadius;
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.28)
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke;
+    const dashCount = 36;
+    for (var i = 0; i < dashCount; i += 2) {
+      final a0 = (i / dashCount) * 2 * math.pi;
+      final a1 = ((i + 1.1) / dashCount) * 2 * math.pi;
+      canvas.drawArc(Rect.fromCircle(center: center, radius: radius), a0, a1 - a0, false, paint);
+    }
+  }
+
   /// A small radial gauge showing how much of the max pull is being used,
-  /// drawn above the sling while actively dragging.
+  /// drawn above the sling while actively dragging. Turns red and pulses
+  /// once the pull is maxed out, giving a clear "full power" cue.
   void _renderPowerMeter(Canvas canvas) {
     final bird = _current;
     if (bird == null) return;
@@ -753,9 +790,23 @@ class AngryBirdGame extends FlameGame {
     final dy = slingAnchor.dy - bird.y;
     final pull = math.sqrt(dx * dx + dy * dy);
     final pct = (pull / AngryBirdConfig.maxDragRadius).clamp(0.0, 1.0);
+    final maxed = pct >= 0.98;
 
     final center = Offset(slingAnchor.dx, slingAnchor.dy - 58);
     const radius = 22.0;
+
+    if (maxed) {
+      final pulse = (math.sin(_time * 9) + 1) / 2;
+      canvas.drawCircle(
+        center,
+        radius + 4 + pulse * 4,
+        Paint()
+          ..color = AngryBirdConfig.birdRed.withValues(alpha: 0.35 - pulse * 0.15)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5,
+      );
+    }
+
     canvas.drawCircle(center, radius, Paint()..color = Colors.black.withValues(alpha: 0.28));
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius - 3),
@@ -766,11 +817,11 @@ class AngryBirdGame extends FlameGame {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 5
         ..strokeCap = StrokeCap.round
-        ..color = Color.lerp(AngryBirdConfig.teal, AngryBirdConfig.coral, pct)!,
+        ..color = maxed ? AngryBirdConfig.birdRed : Color.lerp(AngryBirdConfig.teal, AngryBirdConfig.coral, pct)!,
     );
     final tp = TextPainter(
       text: TextSpan(
-        text: '${(pct * 100).round()}%',
+        text: maxed ? 'MAX' : '${(pct * 100).round()}%',
         style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
       ),
       textDirection: TextDirection.ltr,

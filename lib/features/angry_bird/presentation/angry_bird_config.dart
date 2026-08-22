@@ -11,6 +11,10 @@ abstract final class AngryBirdConfig {
   static const double refHeight = 450;
   static const double groundHeight = 46;
   static double get groundY => refHeight - groundHeight;
+  // How far above the ground the sling's pouch rests. Raised from the
+  // original 60 so there's genuine room to pull the bird back and down
+  // without the pull immediately running into the ground.
+  static const double slingLift = 90;
 
   // ---- Palette ----------------------------------------------------------
   static const Color skyTop = Color(0xFF6FC8FF);
@@ -53,17 +57,17 @@ abstract final class AngryBirdConfig {
   static const double birdRadius = 14;
   static const double pigRadius = 14;
 
-  static const double maxDragRadius = 95;
+  static const double maxDragRadius = 150;
   // Hit-test radius for picking up the bird — kept noticeably larger than
   // maxDragRadius so grabbing feels forgiving on touch screens.
-  static const double grabRadius = 140;
-  static const double launchPower = 5.6;
+  static const double grabRadius = 180;
+  static const double launchPower = 6.2;
   static const double yellowBoostMultiplier = 1.8;
 
-  static const double killImpactSpeed = 210;
-  static const double blockDamageImpactSpeed = 190;
-  static const double blockHealthWood = 34;
-  static const double blockHealthStone = 90;
+  static const double killImpactSpeed = 250;
+  static const double blockDamageImpactSpeed = 230;
+  static const double blockHealthWood = 40;
+  static const double blockHealthStone = 110;
 
   static const double restSpeedThreshold = 6;
 
