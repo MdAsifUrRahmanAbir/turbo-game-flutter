@@ -15,6 +15,7 @@ import '../../fire_game/presentation/fire_game_screen.dart';
 import '../../football_penalty/football_penalty_screen.dart';
 import '../../racing/presentation/racing_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
+import '../../sniper/sniper_screen.dart';
 
 /// The arcade "front door" — a cartoon, glowing dashboard that lists every
 /// mini-game as its own themed cabinet card. Adding a new game only means
@@ -105,6 +106,16 @@ class _GameHubScreenState extends ConsumerState<GameHubScreen>
             ? null
             : '$smashUnlocked/${angryBirdLevels.length} LEVELS',
         onTap: () => _openGame(const AngryBirdScreen()),
+      ),
+      _GameEntry(
+        icon: Icons.center_focus_strong_rounded,
+        title: 'SNIPER OPS',
+        tag: 'SNIPER',
+        description: 'Aim carefully, track moving targets and complete precision sniper missions.',
+        colors: const [Color(0xFF4CAF50), Color(0xFF263238)],
+        glow: const Color(0xFF66BB6A),
+        badge: _bestBadge(store.getInt(ProgressKeys.fireBestScore)),
+        onTap: () => _openGame(const SniperScreen()),
       ),
     ];
   }
