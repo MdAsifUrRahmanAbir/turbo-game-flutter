@@ -1,5 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/audio/sfx.dart';
+import '../../../core/audio/sfx_player.dart';
+import '../../../core/feedback/haptics.dart';
+import '../../../core/persistence/game_progress_store.dart';
+import '../../../core/settings/settings_controller.dart';
 import 'fire_game_state.dart';
 
 final fireGameControllerProvider =
@@ -10,7 +15,8 @@ final fireGameControllerProvider =
 class FireGameController extends Notifier<FireGameState> {
   @override
   FireGameState build() {
-    return const FireGameState();
+    final store = ref.watch(gameProgressStoreProvider);
+    return FireGameState(bestScore: store.getInt(ProgressKeys.fireBestScore));
   }
 
   void startGame() {
@@ -23,6 +29,8 @@ class FireGameController extends Notifier<FireGameState> {
       combo: 0,
       tripleShotCharge: 0,
     );
+    _playFx(Sfx.confirm);
+    _haptic(AppHaptics.light);
   }
 
   void pauseGame() {
@@ -30,6 +38,8 @@ class FireGameController extends Notifier<FireGameState> {
       return;
     }
     state = state.copyWith(status: FireGameStatus.paused);
+    _playFx(Sfx.tap);
+    _haptic(AppHaptics.selection);
   }
 
   void resumeGame() {
@@ -37,9 +47,12 @@ class FireGameController extends Notifier<FireGameState> {
       return;
     }
     state = state.copyWith(status: FireGameStatus.playing);
+    _playFx(Sfx.tap);
+    _haptic(AppHaptics.selection);
   }
 
   void gameOver() {
+    final isNewBest = state.score > 0 && state.score >= state.bestScore;
     final bestScore =
         state.score > state.bestScore ? state.score : state.bestScore;
 
@@ -47,10 +60,21 @@ class FireGameController extends Notifier<FireGameState> {
       status: FireGameStatus.gameOver,
       bestScore: bestScore,
     );
+
+    if (isNewBest) {
+      ref.read(gameProgressStoreProvider).setInt(ProgressKeys.fireBestScore, bestScore);
+      _playFx(Sfx.win);
+      _haptic(AppHaptics.medium);
+    } else {
+      _playFx(Sfx.lose);
+      _haptic(AppHaptics.heavy);
+    }
   }
 
   void backToMenu() {
     state = state.copyWith(status: FireGameStatus.menu);
+    _playFx(Sfx.back);
+    _haptic(AppHaptics.light);
   }
 
   void updateHud({
@@ -69,5 +93,16 @@ class FireGameController extends Notifier<FireGameState> {
       combo: combo,
       tripleShotCharge: tripleShotCharge,
     );
+  }
+
+  void _playFx(Sfx sfx) {
+    ref.read(sfxPlayerProvider).play(
+          sfx,
+          enabled: ref.read(settingsControllerProvider).soundEnabled,
+        );
+  }
+
+  void _haptic(void Function(bool enabled) call) {
+    call(ref.read(settingsControllerProvider).hapticsEnabled);
   }
 }

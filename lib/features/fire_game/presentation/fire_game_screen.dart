@@ -5,6 +5,10 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/audio/sfx.dart';
+import '../../../core/audio/sfx_player.dart';
+import '../../../core/feedback/haptics.dart';
+import '../../../core/settings/settings_controller.dart';
 import 'fire_game_config.dart';
 import 'fire_game_controller.dart';
 import 'fire_game_state.dart';
@@ -37,6 +41,30 @@ class _FireGameScreenState extends ConsumerState<FireGameScreen> {
       onHudUpdate: (score, health, wave, enemiesDefeated, combo, tripleShotCharge) {
         // Flame's update() can run while Flutter is building/laying out.
         // Never mutate a Riverpod provider directly from the Flame game loop.
+        // Reading/playing sfx+haptics here is safe though — it doesn't touch
+        // Riverpod state, just fires audio for the delta since last frame.
+        if (mounted) {
+          final sound = ref.read(settingsControllerProvider).soundEnabled;
+          final haptics = ref.read(settingsControllerProvider).hapticsEnabled;
+          final sfx = ref.read(sfxPlayerProvider);
+
+          if (enemiesDefeated > _pendingKills) {
+            sfx.play(Sfx.hit, enabled: sound);
+          }
+          if (health < _pendingHealth) {
+            sfx.play(Sfx.damage, enabled: sound);
+            AppHaptics.heavy(haptics);
+          }
+          if (wave > _pendingWave) {
+            sfx.play(Sfx.levelUp, enabled: sound);
+            AppHaptics.medium(haptics);
+          }
+          if (tripleShotCharge > 0 && _pendingTripleShot <= 0) {
+            sfx.play(Sfx.powerUp, enabled: sound);
+            AppHaptics.light(haptics);
+          }
+        }
+
         _pendingScore = score;
         _pendingHealth = health;
         _pendingWave = wave;
@@ -112,6 +140,12 @@ class _FireGameScreenState extends ConsumerState<FireGameScreen> {
     _game.pauseGame();
   }
 
+  void _fire() {
+    final sound = ref.read(settingsControllerProvider).soundEnabled;
+    ref.read(sfxPlayerProvider).play(Sfx.tap, enabled: sound);
+    _game.shoot();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(fireGameControllerProvider);
@@ -128,7 +162,7 @@ class _FireGameScreenState extends ConsumerState<FireGameScreen> {
               onPause: _pause,
               onLeft: _game.steerLeft,
               onRight: _game.steerRight,
-              onFire: _game.shoot,
+              onFire: _fire,
             ),
           if (state.status == FireGameStatus.menu) _MenuOverlay(onStart: _start, state: state),
           if (state.status == FireGameStatus.paused)

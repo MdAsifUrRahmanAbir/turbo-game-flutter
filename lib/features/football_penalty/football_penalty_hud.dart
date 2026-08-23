@@ -12,8 +12,10 @@ class FootballPenaltyHud extends StatelessWidget {
     required this.shots,
     required this.goals,
     required this.streak,
+    required this.round,
     required this.power,
     required this.result,
+    required this.commentary,
     required this.onPause,
   });
 
@@ -21,8 +23,10 @@ class FootballPenaltyHud extends StatelessWidget {
   final int shots;
   final int goals;
   final int streak;
+  final int round;
   final double power;
   final PenaltyResult result;
+  final String commentary;
   final VoidCallback onPause;
 
   @override
@@ -33,12 +37,9 @@ class FootballPenaltyHud extends StatelessWidget {
       PenaltyResult.miss => FootballPenaltyConfig.gold,
       PenaltyResult.none => Colors.white70,
     };
-    final resultText = switch (result) {
-      PenaltyResult.goal => 'GOAL!  KEEP THE STREAK ALIVE',
-      PenaltyResult.saved => 'SAVED!  PICK A NEW CORNER',
-      PenaltyResult.miss => 'WIDE!  KEEP YOUR HEAD UP',
-      PenaltyResult.none => 'DRAG TO AIM  •  RELEASE TO SHOOT',
-    };
+    final resultText = result == PenaltyResult.none
+        ? 'DRAG TO AIM  •  RELEASE TO SHOOT'
+        : commentary;
 
     return SafeArea(
       child: Column(
@@ -91,14 +92,17 @@ class FootballPenaltyHud extends StatelessWidget {
               ),
             ),
           ),
-          if (streak >= 2)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: _ComboChip(streak: streak),
-              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                _RoundPill(round: round),
+                if (streak >= 2) _ComboChip(streak: streak),
+              ],
             ),
+          ),
           const Spacer(),
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
@@ -197,6 +201,25 @@ class _Stat extends StatelessWidget {
         Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900)),
       ]),
     ],
+  );
+}
+
+class _RoundPill extends StatelessWidget {
+  const _RoundPill({required this.round});
+  final int round;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+    ),
+    child: Text(
+      'ROUND $round  •  ${FootballPenaltyConfig.difficultyLabel(round)}',
+      style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .6),
+    ),
   );
 }
 

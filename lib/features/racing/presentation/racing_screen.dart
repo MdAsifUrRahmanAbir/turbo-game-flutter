@@ -5,6 +5,10 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/audio/sfx.dart';
+import '../../../core/audio/sfx_player.dart';
+import '../../../core/feedback/haptics.dart';
+import '../../../core/settings/settings_controller.dart';
 import 'racing_config.dart';
 import 'racing_controller.dart';
 import 'racing_game.dart';
@@ -37,6 +41,17 @@ class _RacingScreenViewState extends ConsumerState<RacingScreenView> {
                 .read(racingControllerProvider.notifier)
                 .finishRace(score: score, coins: coins);
           });
+        },
+        onCoinCollected: () {
+          if (!mounted) return;
+          final sound = ref.read(settingsControllerProvider).soundEnabled;
+          ref.read(sfxPlayerProvider).play(Sfx.coin, enabled: sound);
+        },
+        onNitroActivated: () {
+          if (!mounted) return;
+          final settings = ref.read(settingsControllerProvider);
+          ref.read(sfxPlayerProvider).play(Sfx.powerUp, enabled: settings.soundEnabled);
+          AppHaptics.light(settings.hapticsEnabled);
         },
       );
     });

@@ -5,6 +5,10 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/audio/sfx.dart';
+import '../../../core/audio/sfx_player.dart';
+import '../../../core/feedback/haptics.dart';
+import '../../../core/settings/settings_controller.dart';
 import 'angry_bird_config.dart';
 import 'angry_bird_controller.dart';
 import 'angry_bird_game.dart';
@@ -319,13 +323,27 @@ class _LevelTile extends StatelessWidget {
 // Play view
 // ===========================================================================
 
-class _PlayView extends StatelessWidget {
+class _PlayView extends ConsumerWidget {
   const _PlayView({required this.game, required this.onMenu});
   final AngryBirdGame game;
   final VoidCallback onMenu;
 
+  void _tap(WidgetRef ref, VoidCallback action) {
+    action();
+    final settings = ref.read(settingsControllerProvider);
+    ref.read(sfxPlayerProvider).play(Sfx.tap, enabled: settings.soundEnabled);
+    AppHaptics.selection(settings.hapticsEnabled);
+  }
+
+  void _boost(WidgetRef ref, VoidCallback action) {
+    action();
+    final settings = ref.read(settingsControllerProvider);
+    ref.read(sfxPlayerProvider).play(Sfx.powerUp, enabled: settings.soundEnabled);
+    AppHaptics.medium(settings.hapticsEnabled);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SafeArea(
       child: Stack(
         fit: StackFit.expand,
@@ -367,7 +385,7 @@ class _PlayView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  _PauseButton(onTap: game.togglePause),
+                  _PauseButton(onTap: () => _tap(ref, game.togglePause)),
                 ],
               ),
             ),
@@ -380,7 +398,7 @@ class _PlayView extends StatelessWidget {
               builder: (_, _, _) {
                 if (!game.isBoostReady) return const SizedBox.shrink();
                 return GestureDetector(
-                  onTap: game.activateBoost,
+                  onTap: () => _boost(ref, game.activateBoost),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     decoration: BoxDecoration(

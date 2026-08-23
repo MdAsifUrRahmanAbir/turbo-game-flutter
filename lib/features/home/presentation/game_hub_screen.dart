@@ -1,25 +1,33 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/audio/sfx.dart';
+import '../../../core/audio/sfx_player.dart';
+import '../../../core/feedback/haptics.dart';
+import '../../../core/persistence/game_progress_store.dart';
+import '../../../core/settings/settings_controller.dart';
+import '../../angry_bird/presentation/angry_bird_levels.dart';
+import '../../angry_bird/presentation/angry_bird_screen.dart';
 import '../../endless_runner/presentation/endless_runner_screen.dart';
 import '../../fire_game/presentation/fire_game_screen.dart';
-import '../../racing/presentation/racing_screen.dart';
-import '../../angry_bird/presentation/angry_bird_screen.dart';
 import '../../football_penalty/football_penalty_screen.dart';
+import '../../racing/presentation/racing_screen.dart';
+import '../../settings/presentation/settings_screen.dart';
 
 /// The arcade "front door" — a cartoon, glowing dashboard that lists every
 /// mini-game as its own themed cabinet card. Adding a new game only means
 /// appending one more [_GameEntry] to [_GameHubScreenState._buildGameEntries];
 /// the grid, entrance animation and card chrome all scale automatically.
-class GameHubScreen extends StatefulWidget {
+class GameHubScreen extends ConsumerStatefulWidget {
   const GameHubScreen({super.key});
 
   @override
-  State<GameHubScreen> createState() => _GameHubScreenState();
+  ConsumerState<GameHubScreen> createState() => _GameHubScreenState();
 }
 
-class _GameHubScreenState extends State<GameHubScreen>
+class _GameHubScreenState extends ConsumerState<GameHubScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _bounce = AnimationController(
     vsync: this,
@@ -32,7 +40,18 @@ class _GameHubScreenState extends State<GameHubScreen>
     super.dispose();
   }
 
+  void _openGame(Widget screen) {
+    final sound = ref.read(settingsControllerProvider).soundEnabled;
+    final haptics = ref.read(settingsControllerProvider).hapticsEnabled;
+    ref.read(sfxPlayerProvider).play(Sfx.select, enabled: sound);
+    AppHaptics.light(haptics);
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
   List<_GameEntry> _buildGameEntries(BuildContext context) {
+    final store = ref.watch(gameProgressStoreProvider);
+    final smashUnlocked = store.getInt(ProgressKeys.smashUnlockedLevels, fallback: 1);
+
     return [
       _GameEntry(
         icon: Icons.sports_soccer_rounded,
@@ -41,9 +60,8 @@ class _GameHubScreenState extends State<GameHubScreen>
         description: 'Pick your corner, beat the keeper and build a scoring streak.',
         colors: const [Color(0xFF159447), Color(0xFF63D9FF)],
         glow: const Color(0xFF63D9FF),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const FootballPenaltyScreen()),
-        ),
+        badge: _bestBadge(store.getInt(ProgressKeys.penaltyBestScore)),
+        onTap: () => _openGame(const FootballPenaltyScreen()),
       ),
       _GameEntry(
         icon: Icons.directions_car_filled_rounded,
@@ -52,9 +70,8 @@ class _GameHubScreenState extends State<GameHubScreen>
         description: 'Dodge traffic, survive the road and chase a high score.',
         colors: const [Color(0xFFFF7A50), Color(0xFFFFC94A)],
         glow: const Color(0xFFFF7A50),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const RacingScreenView()),
-        ),
+        badge: _bestBadge(store.getInt(ProgressKeys.racingBestScore)),
+        onTap: () => _openGame(const RacingScreenView()),
       ),
       _GameEntry(
         icon: Icons.directions_run_rounded,
@@ -63,9 +80,8 @@ class _GameHubScreenState extends State<GameHubScreen>
         description: 'Switch lanes, jump obstacles, collect coins and survive.',
         colors: const [Color(0xFF11998E), Color(0xFF3DDC97)],
         glow: const Color(0xFF3DDC97),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const EndlessRunnerScreen()),
-        ),
+        badge: _bestBadge(store.getInt(ProgressKeys.runnerBestScore)),
+        onTap: () => _openGame(const EndlessRunnerScreen()),
       ),
       _GameEntry(
         icon: Icons.local_fire_department_rounded,
@@ -75,9 +91,8 @@ class _GameHubScreenState extends State<GameHubScreen>
         'Shoot incoming enemies, survive the waves and beat your high score.',
         colors: const [Color(0xFFEB4B3D), Color(0xFFFFA24A)],
         glow: const Color(0xFFEB4B3D),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const FireGameScreen()),
-        ),
+        badge: _bestBadge(store.getInt(ProgressKeys.fireBestScore)),
+        onTap: () => _openGame(const FireGameScreen()),
       ),
       _GameEntry(
         icon: Icons.adjust_rounded,
@@ -86,12 +101,15 @@ class _GameHubScreenState extends State<GameHubScreen>
         description: 'Sling birds, topple structures and smash every pig.',
         colors: const [Color(0xFF6FC8FF), Color(0xFF8FD14F)],
         glow: const Color(0xFF6FC8FF),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AngryBirdScreen()),
-        ),
+        badge: smashUnlocked <= 1
+            ? null
+            : '$smashUnlocked/${angryBirdLevels.length} LEVELS',
+        onTap: () => _openGame(const AngryBirdScreen()),
       ),
     ];
   }
+
+  String? _bestBadge(int best) => best > 0 ? 'BEST $best' : null;
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +128,17 @@ class _GameHubScreenState extends State<GameHubScreen>
                   constraints: const BoxConstraints(maxWidth: 860),
                   child: Column(
                     children: [
-                      _HubHeader(bounce: _bounce, gameCount: games.length),
+                      _HubHeader(
+                        bounce: _bounce,
+                        gameCount: games.length,
+                        onSettingsTap: () {
+                          final sound = ref.read(settingsControllerProvider).soundEnabled;
+                          ref.read(sfxPlayerProvider).play(Sfx.tap, enabled: sound);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                          );
+                        },
+                      ),
                       const SizedBox(height: 32),
                       LayoutBuilder(
                         builder: (context, constraints) {
@@ -126,7 +154,7 @@ class _GameHubScreenState extends State<GameHubScreen>
                               crossAxisSpacing: 18,
                               mainAxisSpacing: 18,
                               childAspectRatio:
-                              crossAxisCount == 1 ? 1.55 : 0.92,
+                              crossAxisCount == 1 ? 1.38 : 0.82,
                             ),
                             itemBuilder: (context, index) => _AnimatedEntrance(
                               delay: index * 90,
@@ -237,78 +265,70 @@ class _StarsPainter extends CustomPainter {
 // ===========================================================================
 
 class _HubHeader extends StatelessWidget {
-  const _HubHeader({required this.bounce, required this.gameCount});
+  const _HubHeader({
+    required this.bounce,
+    required this.gameCount,
+    required this.onSettingsTap,
+  });
   final Animation<double> bounce;
   final int gameCount;
+  final VoidCallback onSettingsTap;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        Align(
+          alignment: Alignment.topRight,
+          child: IconButton(
+            onPressed: onSettingsTap,
+            icon: const Icon(Icons.settings_rounded, color: Colors.white54),
+            tooltip: 'Settings',
+          ),
+        ),
         AnimatedBuilder(
           animation: bounce,
           builder: (context, child) {
             final lift = math.sin(bounce.value * math.pi) * 6;
             return Transform.translate(offset: Offset(0, -lift), child: child);
           },
-          child: Container(
-            width: 90,
-            height: 90,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFFC94A), Color(0xFFFF7A50)],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFF7A50).withValues(alpha: 0.45),
-                  blurRadius: 38,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.sports_esports_rounded,
-              size: 46,
-              color: Colors.white,
-            ),
-          ),
+          child: Image.asset("assets/play-bits.png"),
         ),
         const SizedBox(height: 18),
-        ShaderMask(
-          shaderCallback: (rect) => const LinearGradient(
-            colors: [Color(0xFFFFC94A), Color(0xFFFF7A50)],
-          ).createShader(rect),
-          child: const Text(
-            'TURBO ARCADE',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 40,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
-              color: Colors.white,
-              height: 1,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-          ),
-          child: Text(
-            '$gameCount GAMES • ONE ARCADE • TAP TO PLAY',
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.4,
-            ),
-          ),
-        ),
+        // ShaderMask(
+        //   shaderCallback: (rect) => const LinearGradient(
+        //     colors: [Color(0xFFFFC94A), Color(0xFFFF7A50)],
+        //   ).createShader(rect),
+        //   child: const Text(
+        //     'PLAYBITS',
+        //     textAlign: TextAlign.center,
+        //     style: TextStyle(
+        //       fontSize: 40,
+        //       fontWeight: FontWeight.w900,
+        //       letterSpacing: 1.5,
+        //       color: Colors.white,
+        //       height: 1,
+        //     ),
+        //   ),
+        // ),
+        // const SizedBox(height: 12),
+        // Container(
+        //   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        //   decoration: BoxDecoration(
+        //     color: Colors.white.withValues(alpha: 0.08),
+        //     borderRadius: BorderRadius.circular(20),
+        //     border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        //   ),
+        //   child: Text(
+        //     '$gameCount GAMES • ONE ARCADE • TAP TO PLAY',
+        //     style: const TextStyle(
+        //       color: Colors.white60,
+        //       fontSize: 11,
+        //       fontWeight: FontWeight.w800,
+        //       letterSpacing: 1.4,
+        //     ),
+        //   ),
+        // ),
       ],
     );
   }
@@ -367,6 +387,7 @@ class _GameEntry {
     required this.colors,
     required this.glow,
     required this.onTap,
+    this.badge,
   });
 
   final IconData icon;
@@ -376,6 +397,7 @@ class _GameEntry {
   final List<Color> colors;
   final Color glow;
   final VoidCallback onTap;
+  final String? badge;
 }
 
 class _GameCard extends StatefulWidget {
@@ -495,6 +517,33 @@ class _GameCardState extends State<_GameCard> {
                       ),
                     ),
                     const Spacer(),
+                    if (entry.badge != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: entry.glow.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: entry.glow.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.emoji_events_rounded, size: 13, color: entry.glow),
+                            const SizedBox(width: 5),
+                            Text(
+                              entry.badge!,
+                              style: TextStyle(
+                                color: entry.glow,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     Row(
                       children: [
                         Text(

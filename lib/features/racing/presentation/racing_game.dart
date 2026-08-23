@@ -14,10 +14,16 @@ import 'racing_config.dart';
 /// Supports both on-screen touch controls and a physical keyboard (for web):
 /// A/D to steer, S to brake, and Enter or Space to trigger nitro.
 class RacingGame extends FlameGame with KeyboardEvents {
-  RacingGame({required this.onGameOver});
+  RacingGame({required this.onGameOver, this.onCoinCollected, this.onNitroActivated});
 
   /// Fired once, with the final score and coins collected, when a run ends.
   final void Function(int score, int coins) onGameOver;
+
+  /// Fired every time a coin is picked up, for a real-time chime.
+  final VoidCallback? onCoinCollected;
+
+  /// Fired whenever nitro kicks in (token pickup or manual activation).
+  final VoidCallback? onNitroActivated;
 
   final math.Random _random = math.Random();
   final List<_RoadCar> _traffic = <_RoadCar>[];
@@ -120,6 +126,7 @@ class RacingGame extends FlameGame with KeyboardEvents {
     _nitroTimeLeft = RacingConfig.nitroDuration;
     _nitroCooldown = RacingConfig.nitroCooldown;
     _shakeTime = math.max(_shakeTime, 0.18);
+    onNitroActivated?.call();
   }
 
   // ---------------------------------------------------------------------
@@ -307,6 +314,7 @@ class RacingGame extends FlameGame with KeyboardEvents {
         _coinsCollected++;
         _score += RacingConfig.coinScoreValue;
         _spawnCoinSparkle(coin.x, coin.y);
+        onCoinCollected?.call();
         return true;
       }
       return false;

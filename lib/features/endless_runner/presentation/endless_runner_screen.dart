@@ -5,6 +5,10 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/audio/sfx.dart';
+import '../../../core/audio/sfx_player.dart';
+import '../../../core/feedback/haptics.dart';
+import '../../../core/settings/settings_controller.dart';
 import 'endless_runner_config.dart';
 import 'endless_runner_controller.dart';
 import 'endless_runner_game.dart';
@@ -29,6 +33,14 @@ class _EndlessRunnerScreenState extends ConsumerState<EndlessRunnerScreen> {
   int _pendingCoins = 0;
   double _pendingDistance = 0;
   double _pendingShield = 0;
+
+  // Last values actually applied to Riverpod, used to edge-detect discrete
+  // pickup events (coin, shield) from the otherwise continuous HUD stream.
+  int _appliedCoins = 0;
+  double _appliedShield = 0;
+
+  bool get _soundOn => ref.read(settingsControllerProvider).soundEnabled;
+  bool get _hapticsOn => ref.read(settingsControllerProvider).hapticsEnabled;
 
   @override
   void initState() {
@@ -58,6 +70,16 @@ class _EndlessRunnerScreenState extends ConsumerState<EndlessRunnerScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _hudUpdateScheduled = false;
       if (!mounted) return;
+
+      if (_pendingCoins > _appliedCoins) {
+        ref.read(sfxPlayerProvider).play(Sfx.coin, enabled: _soundOn);
+      }
+      if (_pendingShield > 0 && _appliedShield <= 0) {
+        ref.read(sfxPlayerProvider).play(Sfx.shieldUp, enabled: _soundOn);
+        AppHaptics.light(_hapticsOn);
+      }
+      _appliedCoins = _pendingCoins;
+      _appliedShield = _pendingShield;
 
       ref.read(endlessRunnerControllerProvider.notifier).updateHud(
             score: _pendingScore,
@@ -97,6 +119,8 @@ class _EndlessRunnerScreenState extends ConsumerState<EndlessRunnerScreen> {
   }
 
   void _start() {
+    _appliedCoins = 0;
+    _appliedShield = 0;
     ref.read(endlessRunnerControllerProvider.notifier).start();
     _game.reset();
     _game.resumeEngine();
@@ -117,6 +141,30 @@ class _EndlessRunnerScreenState extends ConsumerState<EndlessRunnerScreen> {
     _game.pauseGame();
   }
 
+  void _moveLeft() {
+    ref.read(sfxPlayerProvider).play(Sfx.swipe, enabled: _soundOn);
+    AppHaptics.selection(_hapticsOn);
+    _game.moveLeft();
+  }
+
+  void _moveRight() {
+    ref.read(sfxPlayerProvider).play(Sfx.swipe, enabled: _soundOn);
+    AppHaptics.selection(_hapticsOn);
+    _game.moveRight();
+  }
+
+  void _jump() {
+    ref.read(sfxPlayerProvider).play(Sfx.jump, enabled: _soundOn);
+    AppHaptics.light(_hapticsOn);
+    _game.jump();
+  }
+
+  void _duck() {
+    ref.read(sfxPlayerProvider).play(Sfx.tap, enabled: _soundOn);
+    AppHaptics.light(_hapticsOn);
+    _game.duck();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(endlessRunnerControllerProvider);
@@ -134,10 +182,10 @@ class _EndlessRunnerScreenState extends ConsumerState<EndlessRunnerScreen> {
               distance: state.distance,
               shieldCharge: state.shieldCharge,
               onPause: _pause,
-              onLeft: _game.moveLeft,
-              onRight: _game.moveRight,
-              onJump: _game.jump,
-              onDuck: _game.duck,
+              onLeft: _moveLeft,
+              onRight: _moveRight,
+              onJump: _jump,
+              onDuck: _duck,
             ),
           if (state.status == EndlessRunnerStatus.menu) _MenuOverlay(onStart: _start, state: state),
           if (state.status == EndlessRunnerStatus.paused)

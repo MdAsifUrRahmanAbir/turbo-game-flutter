@@ -26,6 +26,25 @@ abstract final class FootballPenaltyConfig {
   static const Color keeper = Color(0xFFFF9F40);
   static const Color keeperDark = Color(0xFFCF5522);
 
+  // ---- Cartoon character palette --------------------------------------
+  // Goalkeeper.
+  static const Color keeperSkin = Color(0xFFE7A472);
+  static const Color keeperHair = Color(0xFF171012);
+  static const Color keeperJerseyDark = Color(0xFFCF5522);
+  static const Color keeperShorts = Color(0xFF0B1220);
+  static const Color keeperSocks = Color(0xFFFF9F40);
+  static const Color keeperGloves = Color(0xFFFFE156);
+  static const Color keeperBoots = Color(0xFF1A1A22);
+
+  // Penalty taker ("striker").
+  static const Color strikerSkin = Color(0xFFFFC49B);
+  static const Color strikerHair = Color(0xFF2B1B12);
+  static const Color strikerJersey = Color(0xFF3D6BFF);
+  static const Color strikerJerseyDark = Color(0xFF2A4ACC);
+  static const Color strikerShorts = Color(0xFFFFFFFF);
+  static const Color strikerSocks = Color(0xFF3D6BFF);
+  static const Color strikerBoots = Color(0xFF1A1A22);
+
   static const double goalLeft = 0.14;
   static const double goalRight = 0.86;
   static const double goalTop = 0.25;
@@ -33,6 +52,17 @@ abstract final class FootballPenaltyConfig {
   static const double ballStartX = 0.5;
   static const double ballStartY = 0.86;
   static const double keeperY = 0.40;
+
+  // ---- Character scale & positioning -----------------------------------
+  // The ball used to be a tiny 10px dot — bumped up and given real
+  // spherical shading so it reads clearly on every device.
+  static const double ballRadius = 17;
+
+  // The penalty taker stands just behind the ball (foreground / closest
+  // to the "camera") and runs up into that spot from further down-screen.
+  static const double strikerBaseY = 0.965;
+  static const double strikerRunStartY = 1.16;
+  static const double strikerCycleDuration = 0.85;
 
   static const double maxAimOffset = 0.38;
   static const double minPower = 0.25;
@@ -51,4 +81,32 @@ abstract final class FootballPenaltyConfig {
   static const int cornerBonus = 75;
   static const int perfectBonus = 125;
   static const int streakBonus = 25;
+
+  // Endless shootout progression: clear a round with enough goals and the
+  // keeper comes back sharper next round.
+  static const int advanceGoalsRequired = 3;
+  static const double keeperReachPerRound = 0.010;
+  static const double keeperReachMax = 0.20;
+  static const double keeperDiveDurationMin = 0.30;
+  static const double keeperDiveDurationPerRound = 0.018;
+
+  // How often the keeper's idle "lean" tell actually predicts their dive.
+  // Read it and shoot the other way — reliability drops as rounds climb.
+  static const double keeperReadBase = 0.72;
+  static const double keeperReadPerRound = 0.035;
+  static const double keeperReadMin = 0.30;
+
+  static const double nearMissBand = 0.055;
+  static const double curveStrength = 0.6;
+  static const double slowMoThreshold = 0.82;
+  static const double slowMoScale = 0.30;
+  static const double impactPunchDecay = 2.6;
+
+  static String difficultyLabel(int round) {
+    if (round <= 1) return 'AMATEUR';
+    if (round == 2) return 'SEMI-PRO';
+    if (round == 3) return 'PRO';
+    if (round == 4) return 'ELITE';
+    return 'WORLD CLASS';
+  }
 }
