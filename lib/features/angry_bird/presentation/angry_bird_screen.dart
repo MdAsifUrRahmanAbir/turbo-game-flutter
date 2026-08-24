@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/audio/sfx.dart';
@@ -24,6 +25,31 @@ class AngryBirdScreen extends ConsumerStatefulWidget {
 
 class _AngryBirdScreenState extends ConsumerState<AngryBirdScreen> {
   AngryBirdGame? _game;
+
+  @override
+  void initState() {
+    super.initState();
+    // Physics Smash — sling, trajectory and fortress layout all read best
+    // wide, so the whole screen (level select, play, results) is locked
+    // to landscape for as long as it's on-screen.
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  @override
+  void dispose() {
+    // Hand orientation control back to the rest of the app (the hub and
+    // other games are portrait-first) the moment this screen is left.
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    super.dispose();
+  }
 
   void _launchLevel(int index) {
     ref.read(angryBirdControllerProvider.notifier).selectLevel(index);
@@ -61,24 +87,24 @@ class _AngryBirdScreenState extends ConsumerState<AngryBirdScreen> {
       body: switch (state.screen) {
         AngryBirdStatus.menu => _MenuView(state: state, onSelect: _launchLevel),
         AngryBirdStatus.playing => _PlayView(
-            game: _game!,
-            onMenu: () => ref.read(angryBirdControllerProvider.notifier).backToMenu(),
-          ),
+          game: _game!,
+          onMenu: () => ref.read(angryBirdControllerProvider.notifier).backToMenu(),
+        ),
         AngryBirdStatus.levelComplete => _LevelCompleteView(
-            state: state,
-            onNext: () {
-              final controller = ref.read(angryBirdControllerProvider.notifier);
-              controller.nextLevel();
-              final next = ref.read(angryBirdControllerProvider);
-              if (next.screen == AngryBirdStatus.playing) _spawnGame(next.currentLevel);
-            },
-            onMenu: () => ref.read(angryBirdControllerProvider.notifier).backToMenu(),
-          ),
+          state: state,
+          onNext: () {
+            final controller = ref.read(angryBirdControllerProvider.notifier);
+            controller.nextLevel();
+            final next = ref.read(angryBirdControllerProvider);
+            if (next.screen == AngryBirdStatus.playing) _spawnGame(next.currentLevel);
+          },
+          onMenu: () => ref.read(angryBirdControllerProvider.notifier).backToMenu(),
+        ),
         AngryBirdStatus.gameOver => _GameOverView(
-            state: state,
-            onRetry: () => _retry(state.currentLevel),
-            onMenu: () => ref.read(angryBirdControllerProvider.notifier).backToMenu(),
-          ),
+          state: state,
+          onRetry: () => _retry(state.currentLevel),
+          onMenu: () => ref.read(angryBirdControllerProvider.notifier).backToMenu(),
+        ),
       },
     );
   }
@@ -368,24 +394,33 @@ class _PlayView extends ConsumerWidget {
             right: 14,
             child: ValueListenableBuilder<int>(
               valueListenable: game.hudTick,
-              builder: (_, _, _) => Row(
+              builder: (_, _, _) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: _GlassPanel(
-                      radius: 18,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _HudMini(icon: Icons.emoji_events_rounded, text: '${game.score}', color: AngryBirdConfig.gold),
-                          _HudMini(icon: Icons.pest_control_rodent_rounded, text: '${game.pigsRemaining}', color: AngryBirdConfig.pigGreen),
-                          _HudMini(icon: Icons.adjust_rounded, text: '${game.birdsRemaining}', color: AngryBirdConfig.coral),
-                        ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _GlassPanel(
+                          radius: 18,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _HudMini(icon: Icons.emoji_events_rounded, text: '${game.score}', color: AngryBirdConfig.gold),
+                              _HudMini(icon: Icons.pest_control_rodent_rounded, text: '${game.pigsRemaining}', color: AngryBirdConfig.pigGreen),
+                              _HudMini(icon: Icons.adjust_rounded, text: '${game.birdsRemaining}', color: AngryBirdConfig.coral),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      _PauseButton(onTap: () => _tap(ref, game.togglePause)),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  _PauseButton(onTap: () => _tap(ref, game.togglePause)),
+                  if (game.nextBirds.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _BirdQueue(birds: game.nextBirds),
+                  ],
                 ],
               ),
             ),
@@ -444,6 +479,54 @@ class _HudMini extends StatelessWidget {
         const SizedBox(width: 6),
         Text(text, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white)),
       ],
+    );
+  }
+}
+
+class _BirdQueue extends StatelessWidget {
+  const _BirdQueue({required this.birds});
+  final List<BirdKind> birds;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassPanel(
+      radius: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'NEXT',
+            style: TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1),
+          ),
+          const SizedBox(width: 8),
+          for (final kind in birds.take(5)) _BirdQueueDot(kind: kind),
+        ],
+      ),
+    );
+  }
+}
+
+class _BirdQueueDot extends StatelessWidget {
+  const _BirdQueueDot({required this.kind});
+  final BirdKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (kind) {
+      BirdKind.red => AngryBirdConfig.birdRed,
+      BirdKind.yellow => AngryBirdConfig.birdYellow,
+      BirdKind.black => AngryBirdConfig.birdBlack,
+    };
+    return Container(
+      width: 16,
+      height: 16,
+      margin: const EdgeInsets.only(right: 5),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1.2),
+      ),
     );
   }
 }

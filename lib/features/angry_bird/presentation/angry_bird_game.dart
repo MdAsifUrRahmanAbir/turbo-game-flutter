@@ -30,6 +30,13 @@ class AngryBirdGame extends FlameGame {
   final List<_Pig> _pigs = [];
   final List<_Particle> _particles = [];
   final List<_Cloud> _clouds = [];
+  final List<_FloatingText> _floatingTexts = [];
+
+  // Consecutive pig kills from the *current* bird's single flight — reset
+  // whenever a new bird is loaded onto the sling. Rewards a single shot
+  // that chains through multiple pigs instead of picking them off one at
+  // a time.
+  int _comboThisFlight = 0;
 
   _Bird? _current;
   bool _dragging = false;
@@ -52,14 +59,19 @@ class AngryBirdGame extends FlameGame {
 
   int get score => _score;
   int get birdsRemaining => level.birds.length - _birdIndex;
+
+  /// Birds still waiting behind the one currently loaded on the sling —
+  /// used to render the "next up" queue strip in the HUD.
+  List<BirdKind> get nextBirds =>
+      level.birds.sublist((_birdIndex + 1).clamp(0, level.birds.length));
   int get pigsRemaining => _pigs.where((p) => p.alive).length;
   bool get isPausedByUser => _paused && !_levelEnded;
   bool get isAiming => _current != null && !_current!.launched;
   bool get isBoostReady =>
       _current != null &&
-      _current!.launched &&
-      _current!.kind == BirdKind.yellow &&
-      !_current!.boosted;
+          _current!.launched &&
+          _current!.kind == BirdKind.yellow &&
+          !_current!.boosted;
 
   Offset get slingAnchor => Offset(120, AngryBirdConfig.groundY - AngryBirdConfig.slingLift);
 
@@ -90,6 +102,7 @@ class AngryBirdGame extends FlameGame {
   void _spawnNextBird() {
     final kind = level.birds[_birdIndex];
     _current = _Bird(kind: kind, x: slingAnchor.dx, y: slingAnchor.dy);
+    _comboThisFlight = 0;
     // NOTE: don't bump hudTick here. This is also called from onLoad(),
     // and onLoad's future can resolve synchronously mid-build (inside the
     // GameWidget's own LayoutBuilder), which crashes any
@@ -109,9 +122,9 @@ class AngryBirdGame extends FlameGame {
   // ---------------------------------------------------------------------
 
   Offset screenToWorld(Offset screenPos) => Offset(
-        (screenPos.dx - _renderOffsetX) / _renderScale,
-        (screenPos.dy - _renderOffsetY) / _renderScale,
-      );
+    (screenPos.dx - _renderOffsetX) / _renderScale,
+    (screenPos.dy - _renderOffsetY) / _renderScale,
+  );
 
   void onDragStart(Offset screenPos) {
     if (_paused || _levelEnded || !isAiming) return;
@@ -197,6 +210,7 @@ class AngryBirdGame extends FlameGame {
     super.update(dt);
     _updateClouds(dt);
     _updateParticles(dt);
+    _updateFloatingTexts(dt);
     if (_shakeTime > 0) _shakeTime = math.max(0, _shakeTime - dt);
 
     if (_paused || _levelEnded) {
@@ -230,6 +244,14 @@ class AngryBirdGame extends FlameGame {
     _particles.removeWhere((p) => p.isDead);
   }
 
+  void _updateFloatingTexts(double dt) {
+    for (final t in _floatingTexts) {
+      t.y -= 34 * dt;
+      t.life -= dt;
+    }
+    _floatingTexts.removeWhere((t) => t.life <= 0);
+  }
+
   void _updatePhysics(double dt) {
     _updateActiveBird(dt);
     _updateBlocks(dt);
@@ -250,6 +272,37 @@ class AngryBirdGame extends FlameGame {
     if (b.trail.length > 14) b.trail.removeAt(0);
 
     final floorY = AngryBirdConfig.groundY - b.radius;
+
+    if (b.isBomb && !b.exploded) {
+      var triggered = b.y >= floorY && b.bounces >= 1;
+      if (!triggered) {
+        for (final block in _blocks) {
+          if (!block.alive) continue;
+          if (_circleRectPush(b.x, b.y, b.radius, block.x, block.y, block.w, block.h) != null) {
+            triggered = true;
+            break;
+          }
+        }
+      }
+      if (!triggered) {
+        for (final pig in _pigs) {
+          if (!pig.alive) continue;
+          final dx = b.x - pig.x;
+          final dy = b.y - pig.y;
+          final rr = b.radius + pig.radius;
+          if (dx * dx + dy * dy < rr * rr) {
+            triggered = true;
+            break;
+          }
+        }
+      }
+      if (triggered) {
+        _explodeBomb(b);
+        _endBirdTurn();
+        return;
+      }
+    }
+
     if (b.y > floorY) {
       b.y = floorY;
       b.vy = -b.vy * AngryBirdConfig.groundRestitution;
@@ -425,12 +478,86 @@ class AngryBirdGame extends FlameGame {
   void _killPig(_Pig pig) {
     if (!pig.alive) return;
     pig.alive = false;
-    _score += 500;
+    _comboThisFlight++;
+    final comboBonus = (_comboThisFlight - 1) * AngryBirdConfig.comboBonusPerKill;
+    final points = AngryBirdConfig.pigBaseScore + comboBonus;
+    _score += points;
     _spawnPigPop(pig.x, pig.y);
+    _spawnFloatingText(
+      pig.x,
+      pig.y,
+      _comboThisFlight > 1 ? '+$points  x$_comboThisFlight COMBO' : '+$points',
+      _comboThisFlight > 1 ? AngryBirdConfig.gold : Colors.white,
+    );
     _shake(0.2);
     if (_pigs.every((p) => !p.alive)) {
       _finishLevel(won: true);
     }
+  }
+
+  /// The black bird's payoff: a radial shockwave that damages/knocks back
+  /// every block and kills every pig within [AngryBirdConfig.bombExplosionRadius],
+  /// instead of relying on direct-hit impact speed like the other birds.
+  void _explodeBomb(_Bird b) {
+    if (b.exploded) return;
+    b.exploded = true;
+    const radius = AngryBirdConfig.bombExplosionRadius;
+
+    for (final block in _blocks) {
+      if (!block.alive) continue;
+      final dx = block.x - b.x;
+      final dy = block.y - b.y;
+      final dist = math.sqrt(dx * dx + dy * dy);
+      if (dist >= radius) continue;
+
+      final falloff = 1 - (dist / radius);
+      block.resting = false;
+      block.flash = 0.25;
+      block.health -= AngryBirdConfig.blockDamageImpactSpeed * falloff * 2.2;
+
+      final nx = dist < 1 ? 0.0 : dx / dist;
+      final ny = dist < 1 ? -1.0 : dy / dist;
+      block.vx += nx * AngryBirdConfig.bombExplosionForce * falloff * 0.01;
+      block.vy += (ny * AngryBirdConfig.bombExplosionForce * falloff * 0.01) - 70 * falloff;
+
+      if (block.health <= 0 && block.alive) {
+        block.alive = false;
+        _score += block.material == BlockMaterial.stone ? 150 : 100;
+        _spawnDebris(block, count: 12);
+      }
+    }
+
+    for (final pig in _pigs) {
+      if (!pig.alive) continue;
+      final dx = pig.x - b.x;
+      final dy = pig.y - b.y;
+      final dist = math.sqrt(dx * dx + dy * dy);
+      if (dist < radius) _killPig(pig);
+    }
+
+    _spawnExplosion(b.x, b.y);
+    _shake(0.32);
+  }
+
+  void _spawnExplosion(double x, double y) {
+    for (var i = 0; i < 34; i++) {
+      final color = i % 3 == 0
+          ? AngryBirdConfig.explosionCore
+          : (i % 3 == 1 ? AngryBirdConfig.explosionMid : AngryBirdConfig.explosionOuter);
+      _particles.add(_Particle.burst(
+        x: x,
+        y: y,
+        color: color,
+        random: _random,
+        speed: 220,
+        life: 0.65,
+        size: 6,
+      ));
+    }
+  }
+
+  void _spawnFloatingText(double x, double y, String text, Color color) {
+    _floatingTexts.add(_FloatingText(x: x, y: y, text: text, color: color, life: 1.0, maxLife: 1.0));
   }
 
   void _endBirdTurn() {
@@ -460,14 +587,14 @@ class AngryBirdGame extends FlameGame {
   // ---------------------------------------------------------------------
 
   ({double nx, double ny, double depth})? _circleRectPush(
-    double cx,
-    double cy,
-    double r,
-    double rx,
-    double ry,
-    double rw,
-    double rh,
-  ) {
+      double cx,
+      double cy,
+      double r,
+      double rx,
+      double ry,
+      double rw,
+      double rh,
+      ) {
     final closestX = cx.clamp(rx - rw / 2, rx + rw / 2);
     final closestY = cy.clamp(ry - rh / 2, ry + rh / 2);
     final dx = cx - closestX;
@@ -580,6 +707,7 @@ class AngryBirdGame extends FlameGame {
     _renderGrabHint(canvas);
     if (_current != null) _renderBird(canvas, _current!);
     _renderParticles(canvas);
+    _renderFloatingTexts(canvas);
     _renderVignette(canvas);
 
     canvas.restore();
@@ -838,7 +966,11 @@ class AngryBirdGame extends FlameGame {
     var y = b.y;
     final dvx = vx;
     var dvy = vy;
-    final core = b.kind == BirdKind.yellow ? AngryBirdConfig.birdYellow : AngryBirdConfig.birdRed;
+    final core = switch (b.kind) {
+      BirdKind.yellow => AngryBirdConfig.birdYellow,
+      BirdKind.black => AngryBirdConfig.birdBlack,
+      BirdKind.red => AngryBirdConfig.birdRed,
+    };
     for (var i = 0; i < 30; i++) {
       dvy += AngryBirdConfig.gravity * 0.045;
       x += dvx * 0.045;
@@ -953,9 +1085,16 @@ class AngryBirdGame extends FlameGame {
       canvas.drawCircle(bird.trail[i], bird.radius * 0.4, Paint()..color = Colors.white.withValues(alpha: a));
     }
 
-    final isYellow = bird.kind == BirdKind.yellow;
-    final body = isYellow ? AngryBirdConfig.birdYellow : AngryBirdConfig.birdRed;
-    final dark = isYellow ? AngryBirdConfig.birdYellowDark : AngryBirdConfig.birdRedDark;
+    final body = switch (bird.kind) {
+      BirdKind.yellow => AngryBirdConfig.birdYellow,
+      BirdKind.black => AngryBirdConfig.birdBlack,
+      BirdKind.red => AngryBirdConfig.birdRed,
+    };
+    final dark = switch (bird.kind) {
+      BirdKind.yellow => AngryBirdConfig.birdYellowDark,
+      BirdKind.black => AngryBirdConfig.birdBlackDark,
+      BirdKind.red => AngryBirdConfig.birdRedDark,
+    };
 
     final bobOffset = (!bird.launched && !_dragging) ? math.sin(bird.idleT * 3) * 2 : 0.0;
     final speed = math.sqrt(bird.vx * bird.vx + bird.vy * bird.vy);
@@ -1005,6 +1144,20 @@ class AngryBirdGame extends FlameGame {
       brow,
     );
 
+    if (bird.kind == BirdKind.black) {
+      final sparkPulse = (math.sin(_time * 14) + 1) / 2;
+      canvas.drawCircle(
+        Offset(0, -bird.radius * 1.15),
+        2 + sparkPulse * 1.6,
+        Paint()..color = AngryBirdConfig.gold.withValues(alpha: 0.85),
+      );
+      canvas.drawCircle(
+        Offset(0, -bird.radius * 1.15),
+        5 + sparkPulse * 3,
+        Paint()..color = AngryBirdConfig.gold.withValues(alpha: 0.22),
+      );
+    }
+
     canvas.restore();
   }
 
@@ -1012,6 +1165,20 @@ class AngryBirdGame extends FlameGame {
     for (final p in _particles) {
       final alpha = (p.life / p.maxLife).clamp(0.0, 1.0);
       canvas.drawCircle(Offset(p.x, p.y), p.size * alpha, Paint()..color = p.color.withValues(alpha: alpha));
+    }
+  }
+
+  void _renderFloatingTexts(Canvas canvas) {
+    for (final t in _floatingTexts) {
+      final alpha = (t.life / t.maxLife).clamp(0.0, 1.0);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: t.text,
+          style: TextStyle(color: t.color.withValues(alpha: alpha), fontSize: 13, fontWeight: FontWeight.w900),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(t.x - tp.width / 2, t.y - tp.height / 2));
     }
   }
 
@@ -1029,11 +1196,14 @@ class _Bird {
   double rotation = 0;
   bool launched = false;
   bool boosted = false;
+  bool exploded = false;
   int bounces = 0;
   double restTimer = 0;
   double idleT = 0;
   final double radius = AngryBirdConfig.birdRadius;
   final List<Offset> trail = [];
+
+  bool get isBomb => kind == BirdKind.black;
 }
 
 class _Pig {
@@ -1048,8 +1218,8 @@ class _Pig {
 class _Block {
   _Block({required this.x, required this.y, required this.w, required this.h, required this.material})
       : maxHealth = material == BlockMaterial.wood
-            ? AngryBirdConfig.blockHealthWood
-            : AngryBirdConfig.blockHealthStone,
+      ? AngryBirdConfig.blockHealthWood
+      : AngryBirdConfig.blockHealthStone,
         health = material == BlockMaterial.wood
             ? AngryBirdConfig.blockHealthWood
             : AngryBirdConfig.blockHealthStone;
@@ -1071,6 +1241,24 @@ class _Cloud {
   double x, y;
   final double scale;
   final double speed;
+}
+
+class _FloatingText {
+  _FloatingText({
+    required this.x,
+    required this.y,
+    required this.text,
+    required this.color,
+    required this.life,
+    required this.maxLife,
+  });
+
+  double x;
+  double y;
+  final String text;
+  final Color color;
+  double life;
+  final double maxLife;
 }
 
 class _Particle {

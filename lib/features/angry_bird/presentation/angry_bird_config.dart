@@ -31,6 +31,12 @@ abstract final class AngryBirdConfig {
   static const Color birdRedDark = Color(0xFFB8301F);
   static const Color birdYellow = Color(0xFFFFD23D);
   static const Color birdYellowDark = Color(0xFFE0A400);
+  static const Color birdBlack = Color(0xFF3A3A3A);
+  static const Color birdBlackDark = Color(0xFF1A1A1A);
+
+  static const Color explosionCore = Color(0xFFFFF3C4);
+  static const Color explosionMid = Color(0xFFFFC94A);
+  static const Color explosionOuter = Color(0xFFFF6B4A);
 
   static const Color pigGreen = Color(0xFF8FD14F);
   static const Color pigGreenDark = Color(0xFF5FA22E);
@@ -70,6 +76,16 @@ abstract final class AngryBirdConfig {
   static const double blockHealthStone = 110;
 
   static const double restSpeedThreshold = 6;
+
+  // ---- Bomb bird (black) ---------------------------------------------
+  // How far the shockwave reaches and how hard it shoves blocks/pigs.
+  static const double bombExplosionRadius = 95;
+  static const double bombExplosionForce = 900;
+
+  // ---- Combo scoring ---------------------------------------------------
+  // Extra points per additional pig killed by the same bird's flight.
+  static const int pigBaseScore = 500;
+  static const int comboBonusPerKill = 250;
 
   static const List<Color> confetti = [
     Color(0xFFFF6B4A),
