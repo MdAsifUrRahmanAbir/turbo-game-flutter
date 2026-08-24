@@ -90,11 +90,11 @@ class SniperGame extends FlameGame with TapCallbacks, DragCallbacks, KeyboardEve
   }
 
   @override
-  void onGameResize(Vector2 newSize) {
-    super.onGameResize(newSize);
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
     if (_crosshairX == 0 && _crosshairY == 0) {
-      _crosshairX = newSize.x / 2;
-      _crosshairY = newSize.y / 2;
+      _crosshairX = size.x / 2;
+      _crosshairY = size.y / 2;
     }
   }
 

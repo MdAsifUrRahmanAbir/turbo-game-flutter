@@ -31,8 +31,8 @@ class GameProgressStore {
   Future<void> setDouble(String key, double value) =>
       _prefs.setDouble(key, value);
 
-  /// Persists a sparse `levelIndex -> stars` map (used by Physics Smash) as
-  /// compact JSON.
+  /// Persists a sparse `levelIndex -> stars` map (used by Physics Smash and
+  /// Gulti Shoot) as compact JSON.
   Map<int, int> getIntMap(String key) {
     final raw = _prefs.getString(key);
     if (raw == null || raw.isEmpty) return const {};
@@ -69,4 +69,10 @@ abstract final class ProgressKeys {
   static const smashUnlockedLevels = 'smash.unlockedLevels';
   static const smashLevelStars = 'smash.levelStars';
   static const smashTotalScore = 'smash.totalScore';
+
+  // Gulti shoot
+  static const gultiUnlockedLevels = 'gulti.unlockedLevels';
+  static const gultiLevelStars = 'gulti.levelStars';
+  static const gultiTotalScore = 'gulti.totalScore';
+  static const gultiBestScore = 'gulti.bestScore';
 }

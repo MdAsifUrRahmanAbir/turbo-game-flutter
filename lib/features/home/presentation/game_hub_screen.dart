@@ -3,19 +3,22 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/audio/sfx.dart';
-import '../../../core/audio/sfx_player.dart';
-import '../../../core/feedback/haptics.dart';
-import '../../../core/persistence/game_progress_store.dart';
-import '../../../core/settings/settings_controller.dart';
+import '../../../../core/audio/sfx.dart';
+import '../../../../core/audio/sfx_player.dart';
+import '../../../../core/feedback/haptics.dart';
+import '../../../../core/persistence/game_progress_store.dart';
+import '../../../../core/settings/settings_controller.dart';
 import '../../angry_bird/presentation/angry_bird_levels.dart';
 import '../../angry_bird/presentation/angry_bird_screen.dart';
 import '../../endless_runner/presentation/endless_runner_screen.dart';
 import '../../fire_game/presentation/fire_game_screen.dart';
 import '../../football_penalty/football_penalty_screen.dart';
+import '../../gulti/presentation/gulti_screen.dart';
 import '../../racing/presentation/racing_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../sniper/sniper_screen.dart';
+import '../../sniper2/sniper_screen.dart';
+
 
 /// The arcade "front door" — a cartoon, glowing dashboard that lists every
 /// mini-game as its own themed cabinet card. Adding a new game only means
@@ -108,13 +111,33 @@ class _GameHubScreenState extends ConsumerState<GameHubScreen>
         onTap: () => _openGame(const AngryBirdScreen()),
       ),
       _GameEntry(
-        icon: Icons.center_focus_strong_rounded,
-        title: 'SNIPER OPS',
-        tag: 'SNIPER',
-        description: 'Aim carefully, track moving targets and complete precision sniper missions.',
-        colors: const [Color(0xFF4CAF50), Color(0xFF263238)],
-        glow: const Color(0xFF66BB6A),
-        badge: _bestBadge(store.getInt(ProgressKeys.fireBestScore)),
+        icon: Icons.flutter_dash_rounded,
+        title: 'GULTI SHOOT',
+        tag: 'AIM',
+        description: 'Pull back the gulti, read the flock and take your shot.',
+        colors: const [Color(0xFFE0703C), Color(0xFFFFC94A)],
+        glow: const Color(0xFFE0703C),
+        badge: _bestBadge(store.getInt(ProgressKeys.gultiBestScore)),
+        onTap: () => _openGame(const GultiScreen()),
+      ),
+      _GameEntry(
+        icon: Icons.multitrack_audio_sharp,
+        title: 'SNIPER MISSION',
+        tag: 'AIM',
+        description: 'Drag to aim, fire on target and clear 10 desert missions.',
+        colors: const [Color(0xFFFF8A3D), Color(0xFF2DD9C7)],
+        glow: const Color(0xFF2DD9C7),
+        // badge: _bestBadge(store.getInt(ProgressKeys.sniperBestScore)),
+        onTap: () => _openGame(const Sniper2Screen()),
+      ),
+      _GameEntry(
+        icon: Icons.track_changes_rounded,
+        title: 'TARGET MISSION',
+        tag: 'AIM',
+        description: 'Drag to aim, fire on target and clear 10 desert missions.',
+        colors: const [Color(0xFFFF8A3D), Color(0xFF2DD9C7)],
+        glow: const Color(0xFF2DD9C7),
+        // badge: _bestBadge(store.getInt(ProgressKeys.sniperBestScore)),
         onTap: () => _openGame(const SniperScreen()),
       ),
     ];
