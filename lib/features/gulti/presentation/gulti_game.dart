@@ -711,7 +711,7 @@ class GultiGame extends FlameGame {
     final a = anchor;
     var x = _aimX;
     var y = _aimY;
-    var vx = (a.dx - _aimX) * GultiConfig.launchPowerMultiplier;
+    final vx = (a.dx - _aimX) * GultiConfig.launchPowerMultiplier;
     var vy = (a.dy - _aimY) * GultiConfig.launchPowerMultiplier;
     for (var i = 0; i < 26; i++) {
       vy += GultiConfig.gravity * 0.045;

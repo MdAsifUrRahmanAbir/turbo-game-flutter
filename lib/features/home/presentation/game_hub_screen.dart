@@ -139,6 +139,7 @@ class _GameHubScreenState extends ConsumerState<GameHubScreen>
         glow: const Color(0xFF2DD9C7),
         // badge: _bestBadge(store.getInt(ProgressKeys.sniperBestScore)),
         onTap: () => _openGame(const SniperScreen()),
+        // onTap: () => _openGame(const FireGame2Screen()),
       ),
     ];
   }

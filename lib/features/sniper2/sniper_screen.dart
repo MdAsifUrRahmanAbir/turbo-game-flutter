@@ -70,13 +70,13 @@ class _SniperScreenState extends ConsumerState<Sniper2Screen> {
       if (!mounted) return;
 
       ref.read(sniperControllerProvider.notifier).updateHud(
-            score: _pendingScore,
-            ammo: _pendingAmmo,
-            targetsHit: _pendingTargetsHit,
-            timeRemaining: _pendingTimeRemaining,
-            shotsFired: _pendingShotsFired,
-            shotsHit: _pendingShotsHit,
-          );
+        score: _pendingScore,
+        ammo: _pendingAmmo,
+        targetsHit: _pendingTargetsHit,
+        timeRemaining: _pendingTimeRemaining,
+        shotsFired: _pendingShotsFired,
+        shotsHit: _pendingShotsHit,
+      );
     });
   }
 
@@ -675,20 +675,20 @@ class _ResultStat extends StatelessWidget {
       ),
       child: wide
           ? Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(children: [Icon(icon, size: 14, color: color), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.6))]),
-                Text(value, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
-              ],
-            )
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(children: [Icon(icon, size: 14, color: color), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.6))]),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+        ],
+      )
           : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [Icon(icon, size: 14, color: color), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.6))]),
-                const SizedBox(height: 4),
-                Text(value, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
-              ],
-            ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [Icon(icon, size: 14, color: color), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.6))]),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+        ],
+      ),
     );
   }
 }
