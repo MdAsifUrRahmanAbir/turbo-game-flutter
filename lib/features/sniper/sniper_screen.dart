@@ -193,8 +193,7 @@ class _GlassPanel extends StatelessWidget {
   const _GlassPanel({
     required this.child,
     this.padding = const EdgeInsets.all(24),
-    this.radius = 28,
-  });
+  }) : radius = 28;
 
   final Widget child;
   final EdgeInsets padding;
@@ -229,8 +228,7 @@ class _GradientButton extends StatefulWidget {
     required this.icon,
     required this.onPressed,
     this.colors = const [SniperConfig.coral, Color(0xFFFF8A5C)],
-    this.textColor = Colors.white,
-  });
+  }) : textColor = Colors.white;
 
   final String label;
   final IconData icon;

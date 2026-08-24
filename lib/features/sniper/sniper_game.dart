@@ -513,6 +513,7 @@ class SniperGame extends FlameGame with TapCallbacks, DragCallbacks, KeyboardEve
 
   @override
   void render(Canvas canvas) {
+    super.render(canvas);
     final w = size.x;
     final h = size.y;
     if (w <= 0 || h <= 0) return;

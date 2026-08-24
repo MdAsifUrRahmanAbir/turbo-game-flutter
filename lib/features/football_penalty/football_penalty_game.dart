@@ -226,7 +226,9 @@ class FootballPenaltyGame extends FlameGame with KeyboardEvents {
   void update(double dt) {
     super.update(dt);
     _updateSparks(dt);
-    for (final trail in _trail) trail.update(dt);
+    for (final trail in _trail) {
+      trail.update(dt);
+    }
     _trail.removeWhere((trail) => trail.life <= 0);
     _shake = math.max(0, _shake - dt);
     _impactPunch = math.max(0, _impactPunch - dt * FootballPenaltyConfig.impactPunchDecay);
@@ -396,7 +398,9 @@ class FootballPenaltyGame extends FlameGame with KeyboardEvents {
   }
 
   void _updateSparks(double dt) {
-    for (final spark in _sparks) spark.update(dt);
+    for (final spark in _sparks) {
+      spark.update(dt);
+    }
     _sparks.removeWhere((spark) => spark.life <= 0);
   }
 
@@ -494,8 +498,12 @@ class FootballPenaltyGame extends FlameGame with KeyboardEvents {
     final l = FootballPenaltyConfig.goalLeft * w, r = FootballPenaltyConfig.goalRight * w;
     final t = FootballPenaltyConfig.goalTop * h, b = FootballPenaltyConfig.goalBottom * h;
     final net = Paint()..color = Colors.white.withValues(alpha: .16)..style = PaintingStyle.stroke..strokeWidth = 1;
-    for (var i = 0; i <= 8; i++) c.drawLine(Offset(l + (r-l)*i/8, t), Offset(l + (r-l)*i/8, b), net);
-    for (var i = 0; i <= 5; i++) c.drawLine(Offset(l, t + (b-t)*i/5), Offset(r, t + (b-t)*i/5), net);
+    for (var i = 0; i <= 8; i++) {
+      c.drawLine(Offset(l + (r-l)*i/8, t), Offset(l + (r-l)*i/8, b), net);
+    }
+    for (var i = 0; i <= 5; i++) {
+      c.drawLine(Offset(l, t + (b-t)*i/5), Offset(r, t + (b-t)*i/5), net);
+    }
     // Soft post shadow drawn just behind/right of the bright frame gives
     // the posts a rounded, three-dimensional cross-section instead of a
     // flat white line.
@@ -809,7 +817,9 @@ class FootballPenaltyGame extends FlameGame with KeyboardEvents {
     c.drawLine(end + const Offset(0, -7), end + const Offset(0, 7), Paint()..color = Colors.white.withValues(alpha: .7)..strokeWidth = 1.5);
   }
 
-  void _drawSparks(Canvas c, double w, double h) { for (final s in _sparks) c.drawCircle(_p(s.x, s.y, w, h), s.size, Paint()..color = s.color.withValues(alpha: s.life.clamp(0.0, 1.0))); }
+  void _drawSparks(Canvas c, double w, double h) { for (final s in _sparks) {
+    c.drawCircle(_p(s.x, s.y, w, h), s.size, Paint()..color = s.color.withValues(alpha: s.life.clamp(0.0, 1.0)));
+  } }
   void _drawResultGlow(Canvas c, double w, double h) { final color = _result == PenaltyResult.goal ? FootballPenaltyConfig.lime : FootballPenaltyConfig.coral; c.drawCircle(_p(_ballX, _ballY, w, h), 34, Paint()..color = color.withValues(alpha: .08)); }
 }
 

@@ -1,4 +1,4 @@
-name: turbo_track_racing
+name: playbits
 description: A Flutter game collection with a 2D racing game and a 2D endless runner.
 publish_to: 'none'
 version: 1.0.0+1
@@ -31,6 +31,7 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/playbits.png"
   min_sdk_android: 21
+
   web:
     generate: true
     image_path: "assets/playbits.png"
@@ -48,3 +49,17 @@ flutter:
   assets:
     - assets/play-bits.png
     - assets/playbits.png
+
+msix_config:
+  display_name: PlayBits
+  publisher_display_name: Md Asif Ur Rahman Abir
+  identity_name: abirdev.playbits
+  msix_version: 1.0.0.0
+
+  logo_path: assets/playbits.png
+
+  capabilities: internetClient
+
+  architecture: x64
+  sign_msix: true
+  install_certificate: true
