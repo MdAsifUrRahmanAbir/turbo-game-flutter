@@ -42,17 +42,17 @@ android {
     // Release signing
     // --------------------------------------------------------
 
-//    signingConfigs {
-//        create("release") {
-//            keyAlias = keystoreProperties["keyAlias"] as String
-//            keyPassword = keystoreProperties["keyPassword"] as String
-//            storePassword = keystoreProperties["storePassword"] as String
-//
-//            storeFile = keystoreProperties["storeFile"]?.let {
-//                file(it)
-//            }
-//        }
-//    }
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+            storePassword = keystoreProperties["storePassword"] as String
+
+            storeFile = keystoreProperties["storeFile"]?.let {
+                file(it)
+            }
+        }
+    }
 
     // --------------------------------------------------------
     // Build types
@@ -60,7 +60,7 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

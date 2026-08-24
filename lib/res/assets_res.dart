@@ -7,7 +7,7 @@ class AssetsRes {
   AssetsRes._();
 
   static const String PROJECT_NAME = 'playbits';
-  static const String PROJECT_VERSION = '1.0.0+1';
+  static const String PROJECT_VERSION = '1.0.1+3';
   static const String PLAY_BITS = 'assets/play-bits.png';
   static const String PLAYBITS = 'assets/playbits.png';
 }
