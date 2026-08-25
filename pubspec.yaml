@@ -54,7 +54,8 @@ flutter:
 msix_config:
   display_name: PlayBits
   publisher_display_name: Md Asif Ur Rahman Abir
-  identity_name: abirdev.playbits
+  identity_name: MdAsifUrRahmanAbir.PlayBits
+  publisher: CN=96958590-ACF2-489C-9288-C6B1D72FA244
   msix_version: 1.0.0.0
 
   logo_path: assets/playbits.png
@@ -62,5 +63,4 @@ msix_config:
   capabilities: internetClient
 
   architecture: x64
-  sign_msix: true
-  install_certificate: true
+  store: true

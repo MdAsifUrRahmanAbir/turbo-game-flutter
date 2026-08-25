@@ -20,20 +20,11 @@ class SunsetHoopsHud extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
             child: Row(
               children: [
-                Expanded(
-                  child: _GlassBar(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _Stat(icon: Icons.emoji_events_rounded, value: '${state.score}', color: SunsetHoopsConfig.gold),
-                        _Stat(icon: Icons.sports_basketball_rounded, value: '${state.makes}', color: SunsetHoopsConfig.coral),
-                        _MissesIndicator(misses: state.misses, maxMisses: SunsetHoopsConfig.maxMisses),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
                 _RoundIconButton(icon: Icons.pause_rounded, onTap: onPause),
+                const SizedBox(width: 10),
+                Expanded(child: _ScoreBadge(score: state.score, makes: state.makes)),
+                const SizedBox(width: 10),
+                _TrophyButton(bestScore: state.bestScore),
               ],
             ),
           ),
@@ -43,6 +34,13 @@ class SunsetHoopsHud extends StatelessWidget {
               child: Align(alignment: Alignment.centerLeft, child: _StreakChip(streak: state.streak)),
             ),
           const Spacer(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _MissesIndicator(misses: state.misses, maxMisses: SunsetHoopsConfig.maxMisses),
+            ),
+          ),
         ],
       ),
     );
@@ -76,21 +74,66 @@ class _GlassBar extends StatelessWidget {
   }
 }
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.value, required this.color});
-  final IconData icon;
-  final String value;
-  final Color color;
+/// Circular "avatar" badge + score, echoing the player-badge-plus-score
+/// layout of typical arcade basketball HUDs, drawn purely with Flutter
+/// widgets (no image assets).
+class _ScoreBadge extends StatelessWidget {
+  const _ScoreBadge({required this.score, required this.makes});
+  final int score;
+  final int makes;
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 16, color: color),
-      const SizedBox(width: 5),
-      Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white)),
-    ],
-  );
+  Widget build(BuildContext context) {
+    return _GlassBar(
+      radius: 26,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(colors: [SunsetHoopsConfig.coral, SunsetHoopsConfig.gold]),
+              boxShadow: [BoxShadow(color: SunsetHoopsConfig.coral.withValues(alpha: 0.5), blurRadius: 12, spreadRadius: 1)],
+            ),
+            child: const Icon(Icons.sports_basketball_rounded, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$score', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, height: 1)),
+              Text('$makes MADE', style: const TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.6)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrophyButton extends StatelessWidget {
+  const _TrophyButton({required this.bestScore});
+  final int bestScore;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassBar(
+      radius: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.emoji_events_rounded, color: SunsetHoopsConfig.gold, size: 18),
+          const SizedBox(width: 6),
+          Text('$bestScore', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900)),
+        ],
+      ),
+    );
+  }
 }
 
 class _MissesIndicator extends StatelessWidget {
@@ -100,15 +143,23 @@ class _MissesIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(maxMisses, (i) {
-        final active = i < misses;
-        return Padding(
-          padding: const EdgeInsets.only(left: 3),
-          child: Icon(Icons.close_rounded, size: 15, color: active ? SunsetHoopsConfig.coral : Colors.white.withValues(alpha: 0.25)),
-        );
-      }),
+    return _GlassBar(
+      radius: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('MISSES', style: TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+          const SizedBox(width: 8),
+          ...List.generate(maxMisses, (i) {
+            final active = i < misses;
+            return Padding(
+              padding: const EdgeInsets.only(left: 3),
+              child: Icon(Icons.close_rounded, size: 15, color: active ? SunsetHoopsConfig.coral : Colors.white.withValues(alpha: 0.25)),
+            );
+          }),
+        ],
+      ),
     );
   }
 }

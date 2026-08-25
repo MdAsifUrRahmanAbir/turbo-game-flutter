@@ -83,4 +83,29 @@ abstract final class SunsetHoopsConfig {
     if (makes < 22) return 'ALL-STAR';
     return 'LEGEND';
   }
+
+  // ---- Collision tuning ------------------------------------------------
+  /// Radius of each rim "post" collider (left end + right end of the rim).
+  /// The center opening between them is intentionally left with no
+  /// collider at all so the ball can pass straight through.
+  static const double rimPostRadius = 7;
+
+  static const double rimRestitution = 0.65;
+  static const double backboardRestitution = 0.75;
+  static const double groundRestitution = 0.55;
+  static const double groundFriction = 0.82;
+
+  /// Fraction of screen height the court surface sits at.
+  static const double groundYFraction = 0.94;
+
+  /// Combined speed (px/s) below which a settled ball is considered done.
+  static const double stopThreshold = 55;
+
+  /// Small push-out applied after every collision so the ball never stays
+  /// exactly touching (and therefore re-colliding with) a collider.
+  static const double collisionEpsilon = 0.5;
+
+  /// Pause between a shot resolving (make or miss) and the next ball
+  /// appearing at the shooter spot.
+  static const double resetDelay = 0.35;
 }
