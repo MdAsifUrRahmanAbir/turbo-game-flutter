@@ -75,4 +75,8 @@ abstract final class ProgressKeys {
   static const gultiLevelStars = 'gulti.levelStars';
   static const gultiTotalScore = 'gulti.totalScore';
   static const gultiBestScore = 'gulti.bestScore';
+
+  // Sunset Hoops
+  static const hoopsBestScore = 'hoops.bestScore';
+  static const hoopsBestStreak = 'hoops.bestStreak';
 }

@@ -6,6 +6,7 @@ import '../../../core/audio/sfx_player.dart';
 import '../../../core/feedback/haptics.dart';
 import '../../../core/persistence/game_progress_store.dart';
 import '../../../core/settings/settings_controller.dart';
+import 'about_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -78,6 +79,22 @@ class SettingsScreen extends ConsumerWidget {
                   iconColor: Color(0xFF63D9FF),
                   title: 'PlayBits',
                   subtitle: 'Version 1.0.0 — five games, one arcade',
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 28),
+            const _SectionLabel('DEVELOPER'),
+            _SettingsCard(
+              children: [
+                _SettingsTile(
+                  icon: Icons.info_outline_rounded,
+                  iconColor: const Color(0xFF63D9FF),
+                  title: 'About & Support',
+                  subtitle: 'Contact, portfolio, and ways to support development',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AboutScreen()),
+                  ),
                 ),
               ],
             ),
@@ -172,7 +189,16 @@ class _SettingsCard extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(children: children),
+      // ListTile/SwitchListTile paint their background + ink splashes on
+      // the nearest Material ancestor. Without this, the DecoratedBox
+      // above swallows that paint and Flutter throws the
+      // "ListTile background color or ink splashes may be invisible"
+      // assertion. `transparency` keeps this card's own glass background
+      // visible while still giving the tiles a valid Material to paint on.
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(children: children),
+      ),
     );
   }
 }

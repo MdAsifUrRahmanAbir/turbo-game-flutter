@@ -1,4 +1,4 @@
-# Turbo Arcade — Flutter Game Collection
+# PlayBits — Flutter Game Collection
 
 A single Flutter project containing two playable 2D games:
 

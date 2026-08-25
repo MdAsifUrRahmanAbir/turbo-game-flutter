@@ -18,6 +18,7 @@ import '../../racing/presentation/racing_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../sniper/sniper_screen.dart';
 import '../../sniper2/sniper_screen.dart';
+import '../../sunset_hoops/sunset_hoops_screen.dart';
 
 
 /// The arcade "front door" — a cartoon, glowing dashboard that lists every
@@ -141,6 +142,16 @@ class _GameHubScreenState extends ConsumerState<GameHubScreen>
         onTap: () => _openGame(const SniperScreen()),
         // onTap: () => _openGame(const FireGame2Screen()),
       ),
+      // _GameEntry(
+      //   icon: Icons.sports_basketball_rounded,
+      //   title: 'SUNSET HOOPS',
+      //   tag: 'SHOOT',
+      //   description: 'Drag to aim, release to shoot, and chase a moving hoop.',
+      //   colors: const [Color(0xFFFF7A50), Color(0xFFFFC94A)],
+      //   glow: const Color(0xFFFF7A50),
+      //   badge: _bestBadge(store.getInt(ProgressKeys.hoopsBestScore)),
+      //   onTap: () => _openGame(const SunsetHoopsScreen()),
+      // ),
     ];
   }
 
